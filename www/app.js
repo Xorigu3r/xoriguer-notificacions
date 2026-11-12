@@ -14,6 +14,9 @@ const ACCIONS = {
   alarma:  { ic: '🚨', nom: 'Alarma',      desc: 'Sona com una alarma (p. ex. càmera de seguretat).' },
   secret:  { ic: '🙈', nom: 'Secret',      desc: 'Amaga el contingut; només diu de quina app és.' },
 };
+/** Traducció (i18n.js). A node (proves) no hi és: queda en català. */
+const T_ = (s, v) => (typeof I18N !== 'undefined' ? I18N.t(s, v)
+  : (v ? s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m)) : s));
 const ATURA = new Set(['ignora', 'secret', 'posposa']);
 const DIES = ['Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg'];
 const VIBRACIONS = { defecte: 'La de l\'app', cap: 'Sense vibració', curta: 'Curta', llarga: 'Llarga', doble: 'Doble', triple: 'Triple', batec: 'Batec', sos: 'SOS' };
@@ -80,18 +83,18 @@ function finsProperaFranja(franges, ara = new Date()) {
 function resumRegla(r, nomsApps = {}) {
   const parts = [];
   const apps = llista(r.apps).map((p) => nomsApps[p] || p.split('.').pop());
-  parts.push(apps.length ? apps.join(', ') : 'Totes les apps');
+  parts.push(apps.length ? apps.join(', ') : T_('Totes les apps'));
   const p = llista(r.paraules);
   if (p.length) parts.push('“' + p.join('”, “') + '”');
   if (r.de && r.a) parts.push(`${r.de}–${r.a}`);
   const d = llista(r.dies);
-  if (d.length && d.length < 7) parts.push(d.map((x) => DIES[x - 1]).join(' '));
+  if (d.length && d.length < 7) parts.push(d.map((x) => T_(DIES[x - 1])).join(' '));
   const extra = {
-    refreda: () => `${r.segons || 60} s de calma`,
-    respon: () => `als ${r.minuts || 10} min: “${r.text || ''}”`,
-    recorda: () => `cada ${r.minuts || 5} min`,
-    posposa: () => `a les ${r.franges || '?'}`,
-    alerta: () => VIBRACIONS[r.vibracio || 'defecte'] + (r.soNom ? ' · ' + r.soNom : ''),
+    refreda: () => T_('{n} s de calma', { n: r.segons || 60 }),
+    respon: () => T_('als {n} min: “{t}”', { n: r.minuts || 10, t: r.text || '' }),
+    recorda: () => T_('cada {n} min', { n: r.minuts || 5 }),
+    posposa: () => T_('a les {h}', { h: r.franges || '?' }),
+    alerta: () => T_(VIBRACIONS[r.vibracio || 'defecte']) + (r.soNom ? ' · ' + r.soNom : ''),
   }[r.accio];
   if (extra) parts.push(extra());
   return parts.join(' · ');
@@ -124,12 +127,12 @@ function vegadesAplicada(r, historial, dies = 7, ara = Date.now()) {
 /** Llegeix una còpia de seguretat. Retorna {regles, ajustos} o llança un error amb el motiu. */
 function llegeixCopia(text) {
   let o;
-  try { o = JSON.parse(text); } catch { throw new Error('El fitxer no és una còpia de les regles'); }
+  try { o = JSON.parse(text); } catch { throw new Error(T_('El fitxer no és una còpia de les regles')); }
   if (Array.isArray(o)) o = { regles: o };
-  if (!o || !Array.isArray(o.regles)) throw new Error('El fitxer no és una còpia de les regles');
+  if (!o || !Array.isArray(o.regles)) throw new Error(T_('El fitxer no és una còpia de les regles'));
   const regles = o.regles.filter((r) => r && typeof r === 'object' && ACCIONS[r.accio])
-    .map((r) => ({ ...r, nom: String(r.nom || ACCIONS[r.accio].nom).slice(0, 60) }));
-  if (o.regles.length && !regles.length) throw new Error('Cap regla vàlida al fitxer');
+    .map((r) => ({ ...r, nom: String(r.nom || T_(ACCIONS[r.accio].nom)).slice(0, 60) }));
+  if (o.regles.length && !regles.length) throw new Error(T_('Cap regla vàlida al fitxer'));
   const ajustos = o.ajustos && typeof o.ajustos === 'object' && !Array.isArray(o.ajustos) ? o.ajustos : null;
   return { regles, ajustos };
 }
@@ -157,7 +160,14 @@ if (typeof document !== 'undefined') (() => {
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const natiu = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const N = natiu ? window.Capacitor.registerPlugin('Notificacions') : null;
-  const VERSIO = '1.2';
+  const VERSIO = '1.3';
+  // Idioma: el desat (ajust «idioma», còpia a localStorage per traduir abans de pintar); buit = el del sistema
+  let idiomaDesat = '';
+  try { idiomaDesat = JSON.parse(localStorage.getItem('idioma')) || ''; } catch { /* res */ }
+  I18N.posa(idiomaDesat);
+  document.documentElement.lang = I18N.llengua;
+  I18N.tradueix(document.body);
+  const LOC = () => ({ ca: 'ca', es: 'es', fr: 'fr', en: 'en-GB' }[I18N.llengua] || 'ca');
   const WEB_DESCARREGUES = 'https://xorigu3r.github.io/#utils';
   const WEB_VERSIONS ='https://github.com/Xorigu3r/xoriguer-notificacions/releases/latest';
 
@@ -178,7 +188,7 @@ if (typeof document !== 'undefined') (() => {
     get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sense emmagatzematge */ } },
   };
-  const AJ_DEF = { control: false, desfer: true, segonsDesfer: 10, historial: true, diesHistorial: 14, refredaGlobal: 0 };
+  const AJ_DEF = { idioma: '', control: false, desfer: true, segonsDesfer: 10, historial: true, diesHistorial: 14, refredaGlobal: 0 };
 
   async function carrega() {
     if (natiu) {
@@ -207,11 +217,11 @@ if (typeof document !== 'undefined') (() => {
   function demoHistorial() {
     const ara = Date.now();
     const mostres = [
-      ['com.whatsapp', 'WhatsApp', 'Maria', 'Arribo en 10 minuts'],
-      ['com.whatsapp', 'WhatsApp', 'Maria', 'On ets?'],
-      ['com.instagram.android', 'Instagram', 'Instagram', 'A en Pere li agrada la teva foto'],
-      ['com.google.android.gm', 'Gmail', 'Botiga', 'Oferta: 30% de descompte avui'],
-      ['org.telegram.messenger', 'Telegram', 'Grup Família', 'Diumenge dinem a casa la iaia'],
+      ['com.whatsapp', 'WhatsApp', 'Maria', T_('Arribo en 10 minuts')],
+      ['com.whatsapp', 'WhatsApp', 'Maria', T_('On ets?')],
+      ['com.instagram.android', 'Instagram', 'Instagram', T_('A en Pere li agrada la teva foto')],
+      ['com.google.android.gm', 'Gmail', T_('Botiga'), T_('Oferta: 30% de descompte avui')],
+      ['org.telegram.messenger', 'Telegram', T_('Grup Família'), T_('Diumenge dinem a casa la iaia')],
     ];
     return mostres.map(([paquet, app, titol, text], i) => {
       const ap = avalua(regles, paquet, titol, text);
@@ -259,8 +269,8 @@ if (typeof document !== 'undefined') (() => {
   // ---------------- Pausa ----------------
   let pausaWeb = 0;
   function horaCurta(t) {
-    const d = new Date(t), h = d.toLocaleTimeString('ca', { hour: '2-digit', minute: '2-digit' });
-    return d.toDateString() === new Date().toDateString() ? 'les ' + h : 'demà a les ' + h;
+    const d = new Date(t), h = d.toLocaleTimeString(LOC(), { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? T_('les {h}', { h }) : T_('demà a les {h}', { h });
   }
   function pintaPausa(fins) {
     const on = fins > Date.now();
@@ -275,7 +285,7 @@ if (typeof document !== 'undefined') (() => {
     else if (+b.dataset.pausa > 0) fins = Date.now() + +b.dataset.pausa * 60000;
     if (natiu) fins = (await N.pausa({ fins })).pausaFins || 0; else pausaWeb = fins;
     pintaPausa(fins);
-    toast(fins ? 'Regles en pausa fins ' + horaCurta(fins) : 'Regles actives de nou');
+    toast(fins ? T_('Regles en pausa fins {h}', { h: horaCurta(fins) }) : T_('Regles actives de nou'));
   });
 
   async function refrescaInici() {
@@ -304,8 +314,8 @@ if (typeof document !== 'undefined') (() => {
       <li data-p="${esc(x.paquet)}">
         <button class="barra" data-veure="1"><span class="nom">${esc(nomsApps[x.paquet] || x.app)}</span>
           <span class="pista"><span style="width:${Math.max(4, Math.round(x.n / max * 100))}%"></span></span>
-          <span class="n">${x.n}${x.filtrades ? ` <small>(${x.filtrades} filtrades)</small>` : ''}</span></button>
-        <button class="xip" data-regla="1">+ Regla</button>
+          <span class="n">${x.n}${x.filtrades ? ` <small>${T_('({n} filtrades)', { n: x.filtrades })}</small>` : ''}</span></button>
+        <button class="xip" data-regla="1">${T_('+ Regla')}</button>
       </li>`).join('');
   }
   $('#estadistica').addEventListener('click', (ev) => {
@@ -321,12 +331,13 @@ if (typeof document !== 'undefined') (() => {
 
   function pintaPlantilles() {
     $('#plantilles').innerHTML = PLANTILLES.map((p, i) =>
-      `<button class="plantilla" data-i="${i}"><span class="ic">${ACCIONS[p.accio].ic}</span><span><b>${esc(p.nom)}</b><small>${esc(ACCIONS[p.accio].desc)}</small></span></button>`).join('');
+      `<button class="plantilla" data-i="${i}"><span class="ic">${ACCIONS[p.accio].ic}</span><span><b>${esc(T_(p.nom))}</b><small>${esc(T_(ACCIONS[p.accio].desc))}</small></span></button>`).join('');
   }
   $('#plantilles').addEventListener('click', (ev) => {
     const b = ev.target.closest('.plantilla'); if (!b) return;
     const p = structuredClone(PLANTILLES[+b.dataset.i]);
     p.apps = (p.apps || []).filter((x) => !natiu || nomsApps[x]); // només les que tens instal·lades
+    p.nom = T_(p.nom); if (p.text) p.text = T_(p.text); if (p.paraules) p.paraules = p.paraules.map((x) => T_(x));
     obreEditor({ ...p, activa: true }, true);
   });
 
@@ -339,9 +350,9 @@ if (typeof document !== 'undefined') (() => {
       return `
       <li class="${r.activa === false ? 'inactiva' : ''}" data-i="${i}">
         <span class="ic">${ACCIONS[r.accio]?.ic || '•'}</span>
-        <div class="cos"><b>${esc(r.nom)}</b><small>${esc(ACCIONS[r.accio]?.nom || '')} · ${esc(resumRegla(r, nomsApps))}</small>
-          ${v ? `<span class="etiqueta">${v} ${v === 1 ? 'cop' : 'cops'} en 7 dies</span>` : ''}</div>
-        <div class="ordre"><button data-m="-1" aria-label="Puja">▲</button><button data-m="1" aria-label="Baixa">▼</button></div>
+        <div class="cos"><b>${esc(r.nom)}</b><small>${esc(T_(ACCIONS[r.accio]?.nom || ''))} · ${esc(resumRegla(r, nomsApps))}</small>
+          ${v ? `<span class="etiqueta">${T_(v === 1 ? '{n} cop en 7 dies' : '{n} cops en 7 dies', { n: v })}</span>` : ''}</div>
+        <div class="ordre"><button data-m="-1" aria-label="${T_('Puja')}">▲</button><button data-m="1" aria-label="${T_('Baixa')}">▼</button></div>
       </li>`;
     }).join('');
   }
@@ -365,16 +376,16 @@ if (typeof document !== 'undefined') (() => {
 
   function obreEditor(r, nova, index = -1) {
     edRegla = structuredClone(r); edIndex = nova ? -1 : index; edApps = llista(r.apps);
-    $('#ed-titol').textContent = nova ? 'Nova regla' : 'Edita la regla';
+    $('#ed-titol').textContent = nova ? T_('Nova regla') : T_('Edita la regla');
     $('#ed-esborra').hidden = nova;
     $('#r-nom').value = r.nom || '';
     $('#r-paraules').value = llista(r.paraules).join(', ');
     $('#r-exclou').value = llista(r.exclou).join(', ');
     $('#r-de').value = r.de || ''; $('#r-a').value = r.a || '';
     $('#r-activa').checked = r.activa !== false;
-    $('#r-dies').innerHTML = DIES.map((d, i) => `<button type="button" class="xip ${llista(r.dies).includes(String(i + 1)) ? 'activa' : ''}" data-d="${i + 1}">${d}</button>`).join('');
+    $('#r-dies').innerHTML = DIES.map((d, i) => `<button type="button" class="xip ${llista(r.dies).includes(String(i + 1)) ? 'activa' : ''}" data-d="${i + 1}">${T_(d)}</button>`).join('');
     $('#r-accions').innerHTML = Object.entries(ACCIONS).map(([k, a]) =>
-      `<button type="button" class="accio ${k === r.accio ? 'activa' : ''}" data-a="${k}"><span class="ic">${a.ic}</span>${a.nom}</button>`).join('');
+      `<button type="button" class="accio ${k === r.accio ? 'activa' : ''}" data-a="${k}"><span class="ic">${a.ic}</span>${T_(a.nom)}</button>`).join('');
     pintaParams(); pintaApps();
     $('#r-apps-cerca').value = ''; $('#r-apps-llista').innerHTML = '';
     $('#r-prova-res').innerHTML = '';
@@ -384,30 +395,30 @@ if (typeof document !== 'undefined') (() => {
   function pintaParams() {
     const r = edRegla, a = ACCIONS[r.accio];
     const v = (k, d) => esc(r[k] ?? d);
-    let h = `<p class="ajuda">${a.ic} ${esc(a.desc)}</p>`;
-    if (a.control && !ajustos.control) h += `<p class="ajuda">⚠️ Cal activar <b>Control del so</b> a Ajustos perquè funcioni.</p>`;
-    if (r.accio === 'refreda') h += `<label class="camp">Segons de calma després de cada missatge <input type="number" id="p-segons" min="5" max="3600" value="${v('segons', 120)}"></label>`;
+    let h = `<p class="ajuda">${a.ic} ${esc(T_(a.desc))}</p>`;
+    if (a.control && !ajustos.control) h += `<p class="ajuda">⚠️ ${T_('Cal activar <b>Control del so</b> a Ajustos perquè funcioni.')}</p>`;
+    if (r.accio === 'refreda') h += `<label class="camp">${T_('Segons de calma després de cada missatge')} <input type="number" id="p-segons" min="5" max="3600" value="${v('segons', 120)}"></label>`;
     if (r.accio === 'alerta' || r.accio === 'alarma') {
-      h += `<label class="camp">So <div class="dues"><input id="p-soNom" readonly value="${v('soNom', r.accio === 'alarma' ? "Alarma per defecte" : 'El de l\'app')}"><button type="button" id="p-tria-so">Tria…</button></div></label>`;
+      h += `<label class="camp">${T_('So')} <div class="dues"><input id="p-soNom" readonly value="${r.soNom ? v('soNom', '') : esc(T_(r.accio === 'alarma' ? 'Alarma per defecte' : "El de l'app"))}"><button type="button" id="p-tria-so">${T_('Tria…')}</button></div></label>`;
       if (r.accio === 'alerta') {
-        h += `<label class="camp">Vibració <select id="p-vibracio">${Object.entries(VIBRACIONS).map(([k, n]) => `<option value="${k}" ${k === (r.vibracio || 'defecte') ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
-        if (!ajustos.control) h += `<p class="ajuda">Sense <b>Control del so</b>, aquesta alerta sonarà a més del so normal de l'app.</p>`;
+        h += `<label class="camp">${T_('Vibració')} <select id="p-vibracio">${Object.entries(VIBRACIONS).map(([k, n]) => `<option value="${k}" ${k === (r.vibracio || 'defecte') ? 'selected' : ''}>${esc(T_(n))}</option>`).join('')}</select></label>`;
+        if (!ajustos.control) h += `<p class="ajuda">${T_("Sense <b>Control del so</b>, aquesta alerta sonarà a més del so normal de l'app.")}</p>`;
       }
     }
     if (r.accio === 'respon') {
-      h += `<label class="camp">Al cap de (minuts) <input type="number" id="p-minuts" min="1" max="240" value="${v('minuts', 10)}"></label>`;
-      h += `<label class="camp">Resposta <input id="p-text" maxlength="300" value="${v('text', '')}" placeholder="Ara no puc, et dic alguna cosa després."></label>`;
-      h += `<p class="ajuda">Només funciona amb apps que tenen el botó <b>Respon</b> a la notificació (WhatsApp, Telegram, Missatges...).</p>`;
+      h += `<label class="camp">${T_('Al cap de (minuts)')} <input type="number" id="p-minuts" min="1" max="240" value="${v('minuts', 10)}"></label>`;
+      h += `<label class="camp">${T_('Resposta')} <input id="p-text" maxlength="300" value="${v('text', '')}" placeholder="${esc(T_('Ara no puc, et dic alguna cosa després.'))}"></label>`;
+      h += `<p class="ajuda">${T_('Només funciona amb apps que tenen el botó <b>Respon</b> a la notificació (WhatsApp, Telegram, Missatges...).')}</p>`;
     }
     if (r.accio === 'recorda') {
-      h += `<div class="dues"><label class="camp">Cada (minuts) <input type="number" id="p-minuts" min="1" max="120" value="${v('minuts', 5)}"></label>`;
-      h += `<label class="camp">Com a molt (vegades) <input type="number" id="p-vegades" min="1" max="30" value="${v('vegades', 6)}"></label></div>`;
+      h += `<div class="dues"><label class="camp">${T_('Cada (minuts)')} <input type="number" id="p-minuts" min="1" max="120" value="${v('minuts', 5)}"></label>`;
+      h += `<label class="camp">${T_('Com a molt (vegades)')} <input type="number" id="p-vegades" min="1" max="30" value="${v('vegades', 6)}"></label></div>`;
     }
-    if (r.accio === 'posposa') h += `<label class="camp">Hores de lliurament <input id="p-franges" value="${v('franges', '09:00, 13:00, 20:00')}" placeholder="09:00, 13:00, 20:00"></label>`;
+    if (r.accio === 'posposa') h += `<label class="camp">${T_('Hores de lliurament')} <input id="p-franges" value="${v('franges', '09:00, 13:00, 20:00')}" placeholder="09:00, 13:00, 20:00"></label>`;
     $('#r-params').innerHTML = h;
     const tria = $('#p-tria-so');
     if (tria) tria.addEventListener('click', async () => {
-      if (!natiu) return toast("Triar so només funciona a l'APK");
+      if (!natiu) return toast(T_("Triar so només funciona a l'APK"));
       const s = await N.triaSo({ tipus: r.accio === 'alarma' ? 'alarma' : 'notificacio', actual: r.so || '' });
       if (s.uri) { r.so = s.uri; r.soNom = s.nom; $('#p-soNom').value = s.nom; }
     });
@@ -424,7 +435,7 @@ if (typeof document !== 'undefined') (() => {
   }
   function pintaApps() {
     $('#r-apps-triades').innerHTML = edApps.map((p) => `<button type="button" class="xip activa" data-p="${esc(p)}">${esc(nomsApps[p] || p)} ✕</button>`).join('')
-      || '<small>Totes les apps</small>';
+      || `<small>${T_('Totes les apps')}</small>`;
   }
   $('#r-accions').addEventListener('click', (ev) => {
     const b = ev.target.closest('.accio'); if (!b) return;
@@ -450,12 +461,12 @@ if (typeof document !== 'undefined') (() => {
   });
   $('#ed-tanca').addEventListener('click', () => ed.close());
   $('#ed-esborra').addEventListener('click', async () => {
-    if (edIndex < 0 || !confirm(`Vols esborrar la regla «${edRegla.nom}»?`)) return;
-    regles.splice(edIndex, 1); await desa(); pintaRegles(); ed.close(); toast('Regla esborrada');
+    if (edIndex < 0 || !confirm(T_('Vols esborrar la regla «{n}»?', { n: edRegla.nom }))) return;
+    regles.splice(edIndex, 1); await desa(); pintaRegles(); ed.close(); toast(T_('Regla esborrada'));
   });
   $('#ed-prova').addEventListener('click', async () => {
     llegeixParams();
-    if (!natiu) return toast('Les proves de so només funcionen a l\'APK');
+    if (!natiu) return toast(T_("Les proves de so només funcionen a l'APK"));
     await N.prova({ accio: edRegla.accio, so: edRegla.so || 'defecte', vibracio: edRegla.vibracio || 'defecte' });
     if (edRegla.accio === 'alarma') setTimeout(() => N.aturaAlarma(), 5000);
   });
@@ -463,7 +474,7 @@ if (typeof document !== 'undefined') (() => {
   function llegeixForm() {
     llegeixParams();
     const r = edRegla;
-    r.nom = $('#r-nom').value.trim() || ACCIONS[r.accio].nom;
+    r.nom = $('#r-nom').value.trim() || T_(ACCIONS[r.accio].nom);
     r.apps = [...edApps];
     r.paraules = llista($('#r-paraules').value);
     r.exclou = llista($('#r-exclou').value);
@@ -478,33 +489,38 @@ if (typeof document !== 'undefined') (() => {
     const t = provaRegla(r, historial);
     const dies = historial.length ? Math.max(1, Math.ceil((Date.now() - Math.min(...historial.map((h) => h.t))) / 86400000)) : 0;
     $('#r-prova-res').innerHTML = !historial.length
-      ? '<p class="ajuda">L\'historial és buit: quan arribin notificacions, aquí veuràs quines hauria atrapat.</p>'
-      : `<p class="ajuda">${dies === 1 ? "De l'últim dia" : `Dels últims ${dies} dies`}, n'hauria atrapat <b>${t.length}</b> de ${historial.length}.</p>`
+      ? `<p class="ajuda">${T_("L'historial és buit: quan arribin notificacions, aquí veuràs quines hauria atrapat.")}</p>`
+      : `<p class="ajuda">${T_(dies === 1 ? "De l'últim dia, n'hauria atrapat <b>{n}</b> de {total}." : "Dels últims {d} dies, n'hauria atrapat <b>{n}</b> de {total}.", { d: dies, n: t.length, total: historial.length })}</p>`
         + (t.length ? '<ul class="mini">' + t.slice(0, 6).map((h) => `<li><b>${esc(h.titol || h.app)}</b> <small>${esc(h.app)} · ${hora(h.t)} · ${esc(String(h.text || '').slice(0, 80))}</small></li>`).join('') + '</ul>' : '');
   });
   $('#ed-duplica').addEventListener('click', () => {
     const r = structuredClone(llegeixForm());
-    delete r.id; r.nom = (r.nom + ' (còpia)').slice(0, 60);
+    delete r.id; r.nom = (r.nom + T_(' (còpia)')).slice(0, 60);
     ed.close();
     obreEditor(r, true);
   });
   $('#f-regla').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const r = llegeixForm();
-    if (r.accio === 'posposa' && finsProperaFranja(r.franges) < 0) return toast('Posa almenys una hora vàlida (HH:MM)');
-    if (r.accio === 'respon' && !r.text) return toast('Escriu la resposta');
+    if (r.accio === 'posposa' && finsProperaFranja(r.franges) < 0) return toast(T_('Posa almenys una hora vàlida (HH:MM)'));
+    if (r.accio === 'respon' && !r.text) return toast(T_('Escriu la resposta'));
     if (!r.id) r.id = 'r' + Date.now().toString(36);
     if (edIndex >= 0) regles[edIndex] = r; else regles.push(r);
     await desa(); pintaRegles(); ed.close();
-    toast('Regla desada');
+    toast(T_('Regla desada'));
     if (!$('#v-regles').classList.contains('activa')) mostra('regles');
   });
 
   // ---------------- Historial ----------------
   function hora(t) {
     const d = new Date(t), avui = new Date();
-    const h = d.toLocaleTimeString('ca', { hour: '2-digit', minute: '2-digit' });
-    return d.toDateString() === avui.toDateString() ? h : d.toLocaleDateString('ca', { day: 'numeric', month: 'short' }) + ' ' + h;
+    const h = d.toLocaleTimeString(LOC(), { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === avui.toDateString() ? h : d.toLocaleDateString(LOC(), { day: 'numeric', month: 'short' }) + ' ' + h;
+  }
+  /** L'acció de l'historial la desa Android en català: es tradueix en pintar-la. */
+  function accioHist(a) {
+    const m = /^posposada fins (.+)$/.exec(a);
+    return m ? T_('posposada fins {h}', { h: m[1] }) : T_(a);
   }
   function pintaHistorial() {
     const q = normalitza($('#cerca').value);
@@ -519,8 +535,8 @@ if (typeof document !== 'undefined') (() => {
     $('#llista-historial').innerHTML = ll.map((h) => `
       <li data-id="${esc(h.id)}">
         <div class="cos"><b>${esc(h.titol || h.app)}</b><small>${esc(h.app)} · ${esc(h.text)}</small>
-          ${h.accio ? `<span class="etiqueta">${esc(h.accio)}</span> ` : ''}${h.resposta ? '<span class="etiqueta">resposta enviada</span>' : ''}</div>
-        <div style="text-align:right"><div class="hora">${hora(h.t)}</div><button class="discret" data-r="1">Restaura</button></div>
+          ${h.accio ? `<span class="etiqueta">${esc(accioHist(h.accio))}</span> ` : ''}${h.resposta ? `<span class="etiqueta">${T_('resposta enviada')}</span>` : ''}</div>
+        <div style="text-align:right"><div class="hora">${hora(h.t)}</div><button class="discret" data-r="1">${T_('Restaura')}</button></div>
       </li>`).join('');
   }
   $('#cerca').addEventListener('input', pintaHistorial);
@@ -534,23 +550,23 @@ if (typeof document !== 'undefined') (() => {
   $('#llista-historial').addEventListener('click', async (ev) => {
     if (!ev.target.closest('button[data-r]')) return;
     const id = ev.target.closest('li').dataset.id;
-    if (!natiu) return toast("Restaurar només funciona a l'APK");
+    if (!natiu) return toast(T_("Restaurar només funciona a l'APK"));
     const r = await N.restaura({ id });
-    toast(r.ok ? 'Tornada a posar a les notificacions' : "No s'ha trobat");
+    toast(r.ok ? T_('Tornada a posar a les notificacions') : T_("No s'ha trobat"));
   });
   $('#esborra-historial').addEventListener('click', async () => {
-    if (!confirm("Vols esborrar tot l'historial? No es pot desfer.")) return;
+    if (!confirm(T_("Vols esborrar tot l'historial? No es pot desfer."))) return;
     if (natiu) await N.esborraHistorial();
-    historial = []; pintaHistorial(); toast('Historial esborrat');
+    historial = []; pintaHistorial(); toast(T_('Historial esborrat'));
   });
 
   // ---------------- Ajustos ----------------
   function pintaAjustos() {
     for (const k of Object.keys(AJ_DEF)) {
       const el = $('#a-' + k); if (!el) continue;
-      if (el.type === 'checkbox') el.checked = !!ajustos[k]; else el.value = ajustos[k];
+      if (el.type === 'checkbox') el.checked = !!ajustos[k]; else el.value = ajustos[k] ?? '';
     }
-    $('#versio').textContent = 'v' + VERSIO + (natiu ? '' : ' (web)');
+    $('#versio').textContent = 'v' + VERSIO + (natiu ? '' : T_(' (web)'));
     $$('.versio').forEach((el) => { el.textContent = 'v' + VERSIO; });
   }
 
@@ -560,7 +576,7 @@ if (typeof document !== 'undefined') (() => {
     const nom = `xoriguer-notificacions-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
     const text = JSON.stringify({ app: 'xoriguer-notificacions', versio: VERSIO, data: d.toISOString(), regles, ajustos }, null, 2);
     if (natiu) {
-      try { const r = await N.exporta({ text, nom }); if (r.ok) toast('Còpia desada'); } catch (e) { toast(e.message || 'No s\'ha pogut desar'); }
+      try { const r = await N.exporta({ text, nom }); if (r.ok) toast(T_('Còpia desada')); } catch (e) { toast(e.message || T_("No s'ha pogut desar")); }
     } else {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = nom;
@@ -571,7 +587,7 @@ if (typeof document !== 'undefined') (() => {
   async function recupera(text) {
     let c;
     try { c = llegeixCopia(text); } catch (e) { return toast(e.message); }
-    const substitueix = !regles.length || confirm(`El fitxer té ${c.regles.length} regles.\n\nD'acord = SUBSTITUEIX les teves ${regles.length} regles.\nCancel·la = AFEGEIX-les a les que tens.`);
+    const substitueix = !regles.length || confirm(T_("El fitxer té {n} regles.\n\nD'acord = SUBSTITUEIX les teves {m} regles.\nCancel·la = AFEGEIX-les a les que tens.", { n: c.regles.length, m: regles.length }));
     if (substitueix) regles = c.regles;
     else {
       const ids = new Set(regles.map((r) => r.id));
@@ -579,11 +595,11 @@ if (typeof document !== 'undefined') (() => {
     }
     if (c.ajustos && substitueix) ajustos = { ...AJ_DEF, ...c.ajustos };
     await desa(); pintaRegles(); pintaAjustos();
-    toast(c.regles.length === 1 ? 'Recuperada 1 regla' : `Recuperades ${c.regles.length} regles`);
+    toast(c.regles.length === 1 ? T_('Recuperada 1 regla') : T_('Recuperades {n} regles', { n: c.regles.length }));
   }
   $('#importa').addEventListener('click', async () => {
     if (!natiu) return $('#importa-fitxer').click();
-    try { const r = await N.importa(); if (r.text) await recupera(r.text); } catch (e) { toast(e.message || 'No s\'ha pogut llegir'); }
+    try { const r = await N.importa(); if (r.text) await recupera(r.text); } catch (e) { toast(e.message || T_("No s'ha pogut llegir")); }
   });
   $('#importa-fitxer').addEventListener('change', async (ev) => {
     const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
@@ -592,7 +608,7 @@ if (typeof document !== 'undefined') (() => {
 
   // ---------------- Versió nova ----------------
   async function obreWeb(url) {
-    if (natiu) { try { await N.obreWeb({ url }); } catch { toast('No s\'ha pogut obrir el navegador'); } }
+    if (natiu) { try { await N.obreWeb({ url }); } catch { toast(T_("No s'ha pogut obrir el navegador")); } }
     else window.open(url, '_blank', 'noopener');
   }
   $('#versio-nova').addEventListener('click', () => obreWeb(WEB_VERSIONS));
@@ -600,14 +616,24 @@ if (typeof document !== 'undefined') (() => {
   $('#v-ajustos').addEventListener('change', async (ev) => {
     const el = ev.target; if (!el.id || !el.id.startsWith('a-')) return;
     const k = el.id.slice(2);
+    if (k === 'idioma') {
+      ajustos.idioma = el.value; ajustos.llengua = I18N.posa(el.value);
+      await desa(); ls.set('idioma', el.value); location.reload(); return;
+    }
     ajustos[k] = el.type === 'checkbox' ? el.checked : Math.max(+el.min || 0, Math.min(+el.max || 1e9, +el.value || 0));
     await desa();
-    toast(k === 'control' ? (el.checked ? "Ara el so el fa l'app" : 'El so torna a ser del sistema') : 'Desat');
+    toast(k === 'control' ? (el.checked ? T_("Ara el so el fa l'app") : T_('El so torna a ser del sistema')) : T_('Desat'));
   });
 
   // ---------------- Inici de l'app ----------------
   (async () => {
     await carrega();
+    // l'idioma desat a l'app mana; Android el llegeix d'«llengua»
+    if ((ajustos.idioma || '') !== idiomaDesat) {
+      ls.set('idioma', ajustos.idioma || '');
+      if (ls.get('idioma', null) === (ajustos.idioma || '')) { location.reload(); return; }
+    }
+    if (ajustos.llengua !== I18N.llengua) { ajustos.llengua = I18N.llengua; await desa(); }
     pintaPlantilles(); pintaRegles(); pintaAjustos();
     await refrescaInici();
   })();

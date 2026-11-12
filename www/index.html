@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="cap">
+  <header class="cap" data-no-t>
     <img class="cap-falco" src="icons/simbol.png" alt="">
     <div class="marca">
       <div class="marca-mot" aria-label="Xoriguer">
@@ -103,6 +103,11 @@
     <!-- AJUSTOS -->
     <section id="v-ajustos" class="vista">
       <h2>Ajustos</h2>
+      <div class="targeta">
+        <label class="camp">Idioma <select id="a-idioma" data-no-t>
+          <option value="">Automàtic · Auto</option><option value="ca">Català</option><option value="es">Español</option><option value="fr">Français</option><option value="en">English</option>
+        </select></label>
+      </div>
       <div class="targeta">
         <label class="interruptor"><input type="checkbox" id="a-control"><span></span>
           <div><b>Control del so</b><small>L'app fa sonar i vibrar les notificacions en lloc del sistema. Cal per al <b>refredament</b> i perquè les <b>alertes personalitzades</b> substitueixin el so de l'app. Si l'app s'atura, el sistema torna a sonar sol. Les trucades no es toquen.</small></div></label>
@@ -202,7 +207,7 @@
         <summary>💡 Tres exemples pas a pas</summary>
         <p><b>Que el grup de la colla no em torni boig</b><br>Nova regla → <b>Refredament</b>, 120 s → Apps: WhatsApp → Paraules: el nom del grup → Desa.</p>
         <p><b>Saber quan m'escriu la mare</b><br>Nova regla → <b>Alerta pròpia</b>, vibració «Batec» → Paraules: el nom com el tens a l'agenda → Desa. Posa-la <b>a dalt de tot</b>.</p>
-        <p><b>Conduint</b><br>Idea «Estic conduint» → canvia el text i els minuts → Desa. Quan no condueixis, desactiva-la (interruptor «Activa» o la Pausa).</p>
+        <p><b>Conduint</b><br>Idea «Estic conduint» → canvia el text i els minuts → Desa. Quan no condueixis, desactiva-la (interruptor «Regla activa» o la Pausa).</p>
       </details>
 
       <details id="g-dia">
@@ -273,7 +278,7 @@
         <div id="r-prova-res"></div>
       </div>
 
-      <label class="interruptor"><input type="checkbox" id="r-activa" checked><span></span><div><b>Activa</b></div></label>
+      <label class="interruptor"><input type="checkbox" id="r-activa" checked><span></span><div><b>Regla activa</b></div></label>
       <div class="botons">
         <button type="button" class="perill" id="ed-esborra">Esborra</button>
         <button type="button" id="ed-duplica">Duplica</button>
@@ -285,6 +290,8 @@
 
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="capacitor.js"></script>
+  <script src="i18n.js"></script>
+  <script src="traduccions.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

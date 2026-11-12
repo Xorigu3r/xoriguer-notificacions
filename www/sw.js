@@ -1,6 +1,6 @@
 // Funcionament sense connexió (només a la versió web; l'APK porta els fitxers a dins).
-const CACHE = 'xoriguer-notificacions-v3';
-const FITXERS = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'fonts/Montserrat-ExtraBold.ttf',
+const CACHE = 'xoriguer-notificacions-v4';
+const FITXERS = ['./', 'index.html', 'style.css', 'i18n.js', 'traduccions.js', 'app.js', 'manifest.webmanifest', 'fonts/Montserrat-ExtraBold.ttf',
   'icons/simbol.png', 'icons/favicon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FITXERS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())));

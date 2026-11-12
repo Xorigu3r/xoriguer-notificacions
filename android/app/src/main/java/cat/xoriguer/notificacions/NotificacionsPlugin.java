@@ -178,6 +178,11 @@ public class NotificacionsPlugin extends Plugin {
             JSONObject ajustos = call.getData().has("ajustos") ? new JSONObject(call.getData().getJSONObject("ajustos").toString()) : null;
             Magatzem.desa(getContext(), regles, ajustos);
             ServeiNotificacions.actualitza();
+            if (ajustos != null) { // si canvia l'idioma: noms dels canals i rètol de la rajola
+                Alertes.canals(getContext());
+                try { android.service.quicksettings.TileService.requestListeningState(getContext(),
+                        new android.content.ComponentName(getContext(), Rajola.class)); } catch (Exception ignored) {}
+            }
             call.resolve();
         } catch (Exception e) { call.reject(e.getMessage()); }
     }

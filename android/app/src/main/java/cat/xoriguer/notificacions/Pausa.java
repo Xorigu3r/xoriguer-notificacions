@@ -21,11 +21,11 @@ final class Pausa {
 
     private Pausa() {}
 
-    static String hora(long t) {
+    static String hora(Context c, long t) {
         Calendar a = Calendar.getInstance(), b = Calendar.getInstance();
         b.setTimeInMillis(t);
         String h = new SimpleDateFormat("HH:mm", Locale.ROOT).format(t);
-        return a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR) ? h : "demà a les " + h;
+        return a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR) ? h : Textos.t(c, "demà a les {0}", h);
     }
 
     /** fins = moment (ms) en què s'acaba la pausa; 0 = reprèn ara. */
@@ -42,11 +42,11 @@ final class Pausa {
             Intent obre = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
             Notification.Builder b = Alertes.builder(c, Alertes.CANAL_DESFER)
                     .setSmallIcon(R.drawable.ic_stat_campana)
-                    .setContentTitle("Regles en pausa")
-                    .setContentText("Fins " + hora(fins) + " les notificacions arriben sense filtrar.")
+                    .setContentTitle(Textos.t(c, "Regles en pausa"))
+                    .setContentText(Textos.t(c, "Fins {0} les notificacions arriben sense filtrar.", hora(c, fins)))
                     .setOngoing(true)
                     .setTimeoutAfter(fins - ara)
-                    .addAction(new Notification.Action.Builder(null, "Reprèn", pi).build());
+                    .addAction(new Notification.Action.Builder(null, Textos.t(c, "Reprèn"), pi).build());
             if (obre != null) b.setContentIntent(PendingIntent.getActivity(c, 4, obre, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
             Alertes.nm(c).notify(ID_AVIS, b.build());
         }

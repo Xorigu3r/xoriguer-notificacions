@@ -39,13 +39,13 @@ public final class Alertes {
     static void canals(Context c) {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager nm = c.getSystemService(NotificationManager.class);
-        NotificationChannel copies = new NotificationChannel(CANAL_COPIES, "Notificacions recuperades i amagades", NotificationManager.IMPORTANCE_DEFAULT);
+        NotificationChannel copies = new NotificationChannel(CANAL_COPIES, Textos.t(c, "Notificacions recuperades i amagades"), NotificationManager.IMPORTANCE_DEFAULT);
         copies.setSound(null, null); // el so el fa l'app segons les regles
         copies.enableVibration(false);
         nm.createNotificationChannel(copies);
-        NotificationChannel desfer = new NotificationChannel(CANAL_DESFER, "Desfer (notificació descartada)", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel desfer = new NotificationChannel(CANAL_DESFER, Textos.t(c, "Desfer (notificació descartada)"), NotificationManager.IMPORTANCE_LOW);
         nm.createNotificationChannel(desfer);
-        NotificationChannel al = new NotificationChannel(CANAL_ALARMA, "Alarmes", NotificationManager.IMPORTANCE_HIGH);
+        NotificationChannel al = new NotificationChannel(CANAL_ALARMA, Textos.t(c, "Alarmes"), NotificationManager.IMPORTANCE_HIGH);
         al.setSound(null, null);
         al.enableVibration(false);
         al.setBypassDnd(true);
@@ -114,7 +114,7 @@ public final class Alertes {
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setDeleteIntent(pi)
                 .setContentIntent(pi)
-                .addAction(new Notification.Action.Builder(null, "Atura", pi).build());
+                .addAction(new Notification.Action.Builder(null, Textos.t(c, "Atura"), pi).build());
         nm(c).notify(ID_ALARMA, b.build());
         h.postDelayed(() -> aturaAlarma(c), 3 * 60_000L); // com a molt 3 minuts
     }
@@ -174,7 +174,7 @@ public final class Alertes {
         Bitmap ic = iconaApp(c, paquet);
         if (ic != null) b.setLargeIcon(ic);
         if (amagada) {
-            b.setContentTitle("Nova notificació de " + app).setContentText("Contingut amagat · toca per obrir");
+            b.setContentTitle(Textos.t(c, "Nova notificació de {0}", app)).setContentText(Textos.t(c, "Contingut amagat · toca per obrir"));
         } else {
             b.setContentTitle(titol == null || titol.isEmpty() ? app : titol).setContentText(text)
              .setStyle(new Notification.BigTextStyle().bigText(text));
@@ -187,11 +187,11 @@ public final class Alertes {
         PendingIntent pi = PendingIntent.getBroadcast(c, idCopia, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b = builder(c, CANAL_DESFER)
                 .setSmallIcon(R.drawable.ic_stat_campana)
-                .setContentTitle("Descartada: " + nomApp(c, paquet))
-                .setContentText((titol == null ? "" : titol) + " · toca per recuperar-la")
+                .setContentTitle(Textos.t(c, "Descartada: {0}", nomApp(c, paquet)))
+                .setContentText(Textos.t(c, "{0} · toca per recuperar-la", titol == null ? "" : titol))
                 .setContentIntent(pi)
                 .setAutoCancel(true)
-                .addAction(new Notification.Action.Builder(null, "Desfer", pi).build());
+                .addAction(new Notification.Action.Builder(null, Textos.t(c, "Desfer"), pi).build());
         if (Build.VERSION.SDK_INT >= 26) b.setTimeoutAfter(segons * 1000L);
         nm(c).notify(idCopia + 1, b.build());
     }

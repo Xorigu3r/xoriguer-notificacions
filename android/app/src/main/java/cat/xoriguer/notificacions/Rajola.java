@@ -24,8 +24,8 @@ public class Rajola extends TileService {
         if (t == null) return;
         boolean pausa = Magatzem.enPausa(this);
         t.setIcon(Icon.createWithResource(this, R.drawable.ic_stat_campana));
-        t.setLabel(pausa ? "Regles en pausa" : "Pausa les regles");
-        if (Build.VERSION.SDK_INT >= 29) t.setSubtitle(pausa ? "fins " + Pausa.hora(Magatzem.pausaFins(this)) : "1 hora");
+        t.setLabel(Textos.t(this, pausa ? "Regles en pausa" : "Pausa les regles"));
+        if (Build.VERSION.SDK_INT >= 29) t.setSubtitle(pausa ? Textos.t(this, "fins {0}", Pausa.hora(this, Magatzem.pausaFins(this))) : Textos.t(this, "1 hora"));
         t.setState(pausa ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
         t.updateTile();
     }

@@ -3,5 +3,6 @@
     <string name="app_name">Notificacions</string>
     <string name="title_activity_main">Xoriguer Notificacions</string>
     <string name="package_name">cat.xoriguer.notificacions</string>
+    <string name="rajola">Pause rules</string>
     <string name="custom_url_scheme">cat.xoriguer.notificacions</string>
 </resources>
