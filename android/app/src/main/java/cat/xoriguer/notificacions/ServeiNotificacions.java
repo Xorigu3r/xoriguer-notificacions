@@ -49,16 +49,30 @@ public class ServeiNotificacions extends NotificationListenerService {
 
     private final Map<String, String> darreraFirma = new HashMap<>();
     private final Map<String, Long> ultimaAlerta = new HashMap<>();
-    private final Map<String, Long> posposades = new HashMap<>();
-    private final Map<String, Runnable> temporitzadors = new HashMap<>();
     private String clauAlarma;
-    private final Handler h = new Handler(Looper.getMainLooper());
 
     @Override
     public void onListenerConnected() {
         actiu = this;
         Alertes.canals(this);
         aplicaControl();
+        Temporitzadors.reprograma(this);
+    }
+
+    // Posposades: es desen (si Android tanca l'app, quan tornen no s'han de tornar a posposar)
+    private long posposadaFins(String clau) { return Magatzem.objecte(this, "posposades").optLong(clau, 0); }
+
+    private void posposada(String clau, long fins) {
+        JSONObject o = Magatzem.objecte(this, "posposades");
+        long ara = System.currentTimeMillis();
+        try {
+            if (fins > 0) o.put(clau, fins); else o.remove(clau);
+            // fora les velles (més d'un dia)
+            java.util.List<String> vells = new java.util.ArrayList<>();
+            for (java.util.Iterator<String> it = o.keys(); it.hasNext(); ) { String k = it.next(); if (o.optLong(k) < ara - 86_400_000L) vells.add(k); }
+            for (String k : vells) o.remove(k);
+        } catch (Exception ignored) {}
+        Magatzem.desaObjecte(this, "posposades", o);
     }
 
     @Override
@@ -148,9 +162,9 @@ public class ServeiNotificacions extends NotificationListenerService {
         boolean repetida = firma.equals(darreraFirma.put(clau, firma));
         boolean nomesUnCop = (n.flags & Notification.FLAG_ONLY_ALERT_ONCE) != 0 && idPerClau.containsKey(clau);
         boolean actualitzacio = repetida || nomesUnCop;
-        Long fins = posposades.get(clau);
-        boolean tornaDePosposar = fins != null && ara >= fins - 60_000L;
-        if (tornaDePosposar) posposades.remove(clau);
+        long fins = posposadaFins(clau);
+        boolean tornaDePosposar = fins > 0 && ara >= fins - 60_000L;
+        if (tornaDePosposar) posposada(clau, 0);
         Efecte ef = efecte(sbn, rm);
 
         // Notificacions fixes (música, GPS...) i resums de grup: no s'hi apliquen regles.
@@ -170,7 +184,8 @@ public class ServeiNotificacions extends NotificationListenerService {
         if (actualitzacio) return; // la mateixa notificació actualitzada: ni regles ni so
 
         Calendar cal = Calendar.getInstance();
-        JSONArray regles = Magatzem.regles(this);
+        // En pausa: cap regla (la notificació arriba tal qual), però el so es fa igual si hi ha control del so.
+        JSONArray regles = Magatzem.enPausa(this) ? new JSONArray() : Magatzem.regles(this);
         boolean silenci = false, personalitzada = false;
         String so = null; long[] patro = null;
         StringBuilder aplicades = new StringBuilder();
@@ -198,13 +213,17 @@ public class ServeiNotificacions extends NotificationListenerService {
                     if (!tornaDePosposar && Build.VERSION.SDK_INT >= 26) {
                         long ms = Motor.finsProperaFranja(r.optString("franges", ""), cal);
                         if (ms > 0) {
+                            posposada(clau, ara + ms);
                             snoozeNotification(clau, ms);
-                            posposades.put(clau, ara + ms);
                             String hora = new SimpleDateFormat("HH:mm", Locale.ROOT).format(ara + ms);
                             historial(id, paquet, titol, text, "posposada fins " + hora, aplicades.toString());
                             return;
                         }
                     }
+                    break;
+                case "silencia":
+                    // Només amb control del so: sense, quan la rebem el sistema ja l'ha fet sonar.
+                    if (control) { silenci = true; accioFinal = "silenciada"; }
                     break;
                 case "refreda": {
                     String k = paquet + "|" + titol;
@@ -225,7 +244,7 @@ public class ServeiNotificacions extends NotificationListenerService {
                     accioFinal = "alarma";
                     break;
                 case "recorda":
-                    programaRecordatori(clau, Math.max(1, r.optInt("minuts", 5)), r.optInt("vegades", 6), ef);
+                    programaRecordatori(clau, Math.max(1, r.optInt("minuts", 5)), r.optInt("vegades", 6), ef, id);
                     break;
                 case "respon":
                     programaResposta(clau, Math.max(1, r.optInt("minuts", 10)), r.optString("text", ""), id);
@@ -271,41 +290,76 @@ public class ServeiNotificacions extends NotificationListenerService {
     }
 
     // ---------------- Recordatoris i respostes automàtiques ----------------
-    private boolean activa(String clau) {
+    // Es programen amb Temporitzadors (AlarmManager + desats): sobreviuen si Android tanca l'app.
+    private StatusBarNotification activa(String clau) {
         try {
             StatusBarNotification[] act = getActiveNotifications();
-            if (act != null) for (StatusBarNotification s : act) if (clau.equals(s.getKey())) return true;
+            if (act != null) for (StatusBarNotification s : act) if (clau.equals(s.getKey())) return s;
         } catch (Exception ignored) {}
-        return false;
+        return null;
     }
 
-    private void programa(String clau, String tipus, Runnable r, long ms) {
-        Runnable vell = temporitzadors.put(clau + "#" + tipus, r);
-        if (vell != null) h.removeCallbacks(vell);
-        h.postDelayed(r, ms);
-    }
-
-    private void programaRecordatori(String clau, int minuts, int vegades, Efecte ef) {
-        final int[] queden = {Math.max(1, Math.min(vegades, 30))};
-        Runnable r = new Runnable() {
-            @Override public void run() {
-                if (!activa(clau)) { temporitzadors.remove(clau + "#rec"); return; }
-                Alertes.alerta(ServeiNotificacions.this, ef.so != null ? ef.so.toString() : "defecte", null, ef.so, ef.patro, true);
-                if (--queden[0] > 0) h.postDelayed(this, minuts * 60_000L); else temporitzadors.remove(clau + "#rec");
-            }
-        };
-        programa(clau, "rec", r, minuts * 60_000L);
+    private void programaRecordatori(String clau, int minuts, int vegades, Efecte ef, int id) {
+        try {
+            JSONObject t = new JSONObject();
+            t.put("clau", clau); t.put("tipus", "rec"); t.put("id", id);
+            t.put("minuts", minuts); t.put("queden", Math.max(1, Math.min(vegades, 30)));
+            t.put("quan", System.currentTimeMillis() + minuts * 60_000L);
+            t.put("so", ef.so != null ? ef.so.toString() : "defecte");
+            if (ef.patro != null) { JSONArray p = new JSONArray(); for (long x : ef.patro) p.put(x); t.put("patro", p); }
+            Temporitzadors.programa(this, t);
+        } catch (Exception ignored) {}
     }
 
     private void programaResposta(String clau, int minuts, String text, int id) {
         if (text.isEmpty()) return;
-        programa(clau, "resp", () -> {
-            temporitzadors.remove(clau + "#resp");
-            if (!activa(clau)) return;
-            Desat d;
-            synchronized (perId) { d = perId.get(id); }
-            if (d != null && respon(d.n, text)) Magatzem.marca(this, String.valueOf(id), "resposta", text);
-        }, minuts * 60_000L);
+        try {
+            JSONObject t = new JSONObject();
+            t.put("clau", clau); t.put("tipus", "resp"); t.put("id", id); t.put("text", text);
+            t.put("quan", System.currentTimeMillis() + minuts * 60_000L);
+            Temporitzadors.programa(this, t);
+        } catch (Exception ignored) {}
+    }
+
+    /** Ha sonat l'alarma d'un temporitzador (k = "clau#rec" o "clau#resp"). */
+    static void dispara(Context c, String k) {
+        if (k == null) return;
+        JSONObject t = Temporitzadors.llegeix(c, k);
+        if (t == null) return;
+        if (actiu == null) {
+            // L'app s'acaba d'obrir i Android encara no ha connectat el servei: es torna a provar d'aquí a un minut (5 cops).
+            int r = t.optInt("reintents", 0);
+            if (r >= 5) { Temporitzadors.treu(c, k); return; }
+            try { t.put("reintents", r + 1); t.put("quan", System.currentTimeMillis() + 60_000L); } catch (Exception ignored) {}
+            Temporitzadors.programa(c, t);
+            return;
+        }
+        actiu.executa(k, t);
+    }
+
+    private void executa(String k, JSONObject t) {
+        String clau = t.optString("clau");
+        StatusBarNotification sbn = activa(clau);
+        if (sbn == null) { Temporitzadors.treu(this, k); return; } // ja l'has vista o esborrada
+        if ("resp".equals(t.optString("tipus"))) {
+            Temporitzadors.treu(this, k);
+            String text = t.optString("text");
+            if (respon(sbn.getNotification(), text)) Magatzem.marca(this, String.valueOf(t.optInt("id")), "resposta", text);
+            return;
+        }
+        // recordatori
+        String so = t.optString("so", "defecte");
+        long[] patro = null;
+        JSONArray p = t.optJSONArray("patro");
+        if (p != null) { patro = new long[p.length()]; for (int i = 0; i < p.length(); i++) patro[i] = p.optLong(i); }
+        Alertes.alerta(this, so, null, "defecte".equals(so) ? null : Uri.parse(so), patro, true);
+        int queden = t.optInt("queden", 1) - 1;
+        if (queden <= 0) { Temporitzadors.treu(this, k); return; }
+        try {
+            t.put("queden", queden); t.put("reintents", 0);
+            t.put("quan", System.currentTimeMillis() + t.optInt("minuts", 5) * 60_000L);
+        } catch (Exception ignored) {}
+        Temporitzadors.programa(this, t);
     }
 
     /** Respon amb l'acció "Respon" de la notificació (WhatsApp, Telegram, SMS...). */
@@ -335,16 +389,15 @@ public class ServeiNotificacions extends NotificationListenerService {
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rm, int reason) {
         String clau = sbn.getKey();
-        for (String t : new String[]{"#rec", "#resp"}) {
-            Runnable r = temporitzadors.remove(clau + t);
-            if (r != null) h.removeCallbacks(r);
-        }
+        // Posposada: Android la treu i la tornarà a posar; els seus temporitzadors s'han de quedar.
+        boolean posposant = reason == REASON_SNOOZED || posposadaFins(clau) > System.currentTimeMillis();
+        if (!posposant) Temporitzadors.cancela(this, clau);
         if (clau.equals(clauAlarma)) { Alertes.aturaAlarma(this); clauAlarma = null; }
         if (getPackageName().equals(sbn.getPackageName()) || sbn.isOngoing()) return;
         Integer id = idPerClau.get(clau);
         if (id == null) return;
         if (reason == REASON_CLICK) Magatzem.marca(this, String.valueOf(id), "vista", true);
-        if (reason == REASON_CANCEL && !posposades.containsKey(clau)) {
+        if (reason == REASON_CANCEL && !posposant) {
             JSONObject aj = Magatzem.ajustos(this);
             if (aj.optBoolean("desfer", true)) {
                 Desat d;

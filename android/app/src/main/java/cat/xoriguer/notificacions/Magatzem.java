@@ -48,6 +48,22 @@ public final class Magatzem {
         e.apply();
     }
 
+    /** Objecte JSON desat amb nom (temporitzadors, posposades...). */
+    static JSONObject objecte(Context c, String k) {
+        try { return new JSONObject(prefs(c).getString(k, "{}")); } catch (Exception e) { return new JSONObject(); }
+    }
+
+    static void desaObjecte(Context c, String k, JSONObject o) {
+        prefs(c).edit().putString(k, o.toString()).apply();
+    }
+
+    /** Fins quan estan en pausa les regles (ms; 0 = no). */
+    static long pausaFins(Context c) { return prefs(c).getLong("pausaFins", 0); }
+
+    static boolean enPausa(Context c) { return pausaFins(c) > System.currentTimeMillis(); }
+
+    static void desaPausa(Context c, long fins) { prefs(c).edit().putLong("pausaFins", fins).apply(); }
+
     static File fitxer(Context c) { return new File(c.getFilesDir(), "historial.json"); }
 
     public static synchronized JSONArray historial(Context c) {

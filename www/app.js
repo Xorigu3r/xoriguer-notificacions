@@ -6,6 +6,7 @@
 const ACCIONS = {
   ignora:  { ic: '🚫', nom: 'Ignorar',     desc: "L'elimina en arribar, sense amagar tota l'app." },
   refreda: { ic: '🧊', nom: 'Refredament', desc: 'Si et van escrivint seguit, només sona el primer missatge.', control: true },
+  silencia: { ic: '🔕', nom: 'Silenciar', desc: 'Arriba igual, però sense so ni vibració.', control: true },
   alerta:  { ic: '🔔', nom: 'Alerta pròpia', desc: 'So o vibració especial per a una persona o una frase.' },
   respon:  { ic: '💬', nom: 'Respondre',   desc: "Respon sol si no l'has vista en un temps." },
   recorda: { ic: '⏰', nom: "Recorda-m'ho", desc: "Torna a sonar fins que la vegis." },
@@ -96,6 +97,43 @@ function resumRegla(r, nomsApps = {}) {
   return parts.join(' · ');
 }
 
+/** Quines apps envien més notificacions els últims `dies` dies: [{paquet, app, n, filtrades}], de més a menys. */
+function estadistica(historial, dies = 7, ara = Date.now()) {
+  const des = ara - dies * 86400000;
+  const per = new Map();
+  for (const h of historial || []) {
+    if (!h || h.t < des) continue;
+    const e = per.get(h.paquet) || { paquet: h.paquet, app: h.app || h.paquet, n: 0, filtrades: 0 };
+    e.n++; if (h.accio) e.filtrades++;
+    per.set(h.paquet, e);
+  }
+  return [...per.values()].sort((a, b) => b.n - a.n || a.app.localeCompare(b.app));
+}
+
+/** Notificacions de l'historial que aquesta regla hauria atrapat (amb l'hora en què van arribar). */
+function provaRegla(r, historial) {
+  return (historial || []).filter((h) => h && coincideix({ ...r, activa: true }, h.paquet, h.titol, h.text, new Date(h.t)));
+}
+
+/** Quantes vegades s'ha aplicat una regla (segons l'historial) els últims `dies` dies. */
+function vegadesAplicada(r, historial, dies = 7, ara = Date.now()) {
+  const des = ara - dies * 86400000;
+  return (historial || []).filter((h) => h && h.t >= des && String(h.regles || '').split(', ').includes(r.nom)).length;
+}
+
+/** Llegeix una còpia de seguretat. Retorna {regles, ajustos} o llança un error amb el motiu. */
+function llegeixCopia(text) {
+  let o;
+  try { o = JSON.parse(text); } catch { throw new Error('El fitxer no és una còpia de les regles'); }
+  if (Array.isArray(o)) o = { regles: o };
+  if (!o || !Array.isArray(o.regles)) throw new Error('El fitxer no és una còpia de les regles');
+  const regles = o.regles.filter((r) => r && typeof r === 'object' && ACCIONS[r.accio])
+    .map((r) => ({ ...r, nom: String(r.nom || ACCIONS[r.accio].nom).slice(0, 60) }));
+  if (o.regles.length && !regles.length) throw new Error('Cap regla vàlida al fitxer');
+  const ajustos = o.ajustos && typeof o.ajustos === 'object' && !Array.isArray(o.ajustos) ? o.ajustos : null;
+  return { regles, ajustos };
+}
+
 const PLANTILLES = [
   { accio: 'refreda', nom: 'Calma als xats', segons: 120, apps: ['com.whatsapp', 'org.telegram.messenger'] },
   { accio: 'alerta', nom: 'Persona important', paraules: ['Nom de la persona'], vibracio: 'batec', so: 'defecte' },
@@ -105,10 +143,12 @@ const PLANTILLES = [
   { accio: 'posposa', nom: 'Xarxes en lots', franges: '09:00, 13:00, 20:00', apps: ['com.instagram.android', 'com.facebook.katana'] },
   { accio: 'alarma', nom: 'Càmera de casa', paraules: ['moviment', 'persona detectada'] },
   { accio: 'secret', nom: 'Banc en secret', paraules: ['banc', 'targeta'] },
+  { accio: 'silencia', nom: 'Nit tranquil·la', de: '23:00', a: '07:00' },
 ];
 
 if (typeof module !== 'undefined') {
-  module.exports = { normalitza, coincideix, dinsHorari, avalua, finsProperaFranja, resumRegla, llista, minuts, ACCIONS, PLANTILLES };
+  module.exports = { normalitza, coincideix, dinsHorari, avalua, finsProperaFranja, resumRegla, llista, minuts, ACCIONS, PLANTILLES,
+    estadistica, provaRegla, vegadesAplicada, llegeixCopia };
 }
 
 /* ===================================================================== */
@@ -117,7 +157,8 @@ if (typeof document !== 'undefined') (() => {
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const natiu = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const N = natiu ? window.Capacitor.registerPlugin('Notificacions') : null;
-  const VERSIO = '1.0';
+  const VERSIO = '1.1';
+  const WEB_VERSIONS = 'https://github.com/Xorigu3r/xoriguer-notificacions/releases/latest';
 
   let regles = [];
   let ajustos = {};
@@ -125,6 +166,7 @@ if (typeof document !== 'undefined') (() => {
   let apps = [];          // [{paquet, nom}]
   const nomsApps = {};
   let filtreHist = '';
+  let filtreApp = '';     // paquet (des de l'estadística)
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function toast(t) {
@@ -183,6 +225,7 @@ if (typeof document !== 'undefined') (() => {
     $$('.vista').forEach((s) => s.classList.toggle('activa', s.id === 'v-' + v));
     $$('.pestanyes button').forEach((b) => b.classList.toggle('activa', b.dataset.v === v));
     if (v === 'historial') carregaHistorial().then(pintaHistorial);
+    if (v === 'regles') carregaHistorial().then(pintaRegles);
     if (v === 'inici') refrescaInici();
     window.scrollTo(0, 0);
   }
@@ -199,20 +242,71 @@ if (typeof document !== 'undefined') (() => {
     const marca = (id, ok) => { $(id + ' .punt').classList.toggle('ok', ok); $(id).classList.toggle('fet', ok); };
     marca('#p-acces', e.acces);
     marca('#p-permis', e.permisNotificacions);
+    $('#p-alarmes').hidden = e.android < 31;
+    marca('#p-alarmes', !!e.alarmesExactes);
+    pintaPausa(e.pausaFins || 0);
   }
+
+  // ---------------- Pausa ----------------
+  let pausaWeb = 0;
+  function horaCurta(t) {
+    const d = new Date(t), h = d.toLocaleTimeString('ca', { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? 'les ' + h : 'demà a les ' + h;
+  }
+  function pintaPausa(fins) {
+    const on = fins > Date.now();
+    $('#pausa-on').hidden = !on; $('#pausa-off').hidden = on;
+    $('#pausa').classList.toggle('avis', on);
+    if (on) $('#pausa-fins').textContent = horaCurta(fins);
+  }
+  $('#pausa').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-pausa]'); if (!b) return;
+    let fins = 0;
+    if (b.dataset.pausa === 'dema') { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0); fins = d.getTime(); }
+    else if (+b.dataset.pausa > 0) fins = Date.now() + +b.dataset.pausa * 60000;
+    if (natiu) fins = (await N.pausa({ fins })).pausaFins || 0; else pausaWeb = fins;
+    pintaPausa(fins);
+    toast(fins ? 'Regles en pausa fins ' + horaCurta(fins) : 'Regles actives de nou');
+  });
+
   async function refrescaInici() {
     await refrescaEstat();
+    if (!natiu) pintaPausa(pausaWeb);
     await carregaHistorial();
     const avui = new Date(); avui.setHours(0, 0, 0, 0);
     const d = historial.filter((h) => h.t >= avui.getTime());
     $('#n-avui').textContent = d.length;
     $('#n-filtrades').textContent = d.filter((h) => h.accio).length;
     $('#n-regles').textContent = regles.filter((r) => r.activa !== false).length;
+    pintaEstadistica();
   }
   $('#estat').addEventListener('click', async (ev) => {
     const b = ev.target.closest('button[data-fes]');
     if (!b || !natiu) return;
     await N[b.dataset.fes]();
+  });
+
+  // ---------------- Estadística ----------------
+  function pintaEstadistica() {
+    const e = estadistica(historial).slice(0, 6);
+    const max = e.length ? e[0].n : 1;
+    $('#sense-estadistica').hidden = e.length > 0;
+    $('#estadistica').innerHTML = e.map((x) => `
+      <li data-p="${esc(x.paquet)}">
+        <button class="barra" data-veure="1"><span class="nom">${esc(nomsApps[x.paquet] || x.app)}</span>
+          <span class="pista"><span style="width:${Math.max(4, Math.round(x.n / max * 100))}%"></span></span>
+          <span class="n">${x.n}${x.filtrades ? ` <small>(${x.filtrades} filtrades)</small>` : ''}</span></button>
+        <button class="xip" data-regla="1">+ Regla</button>
+      </li>`).join('');
+  }
+  $('#estadistica').addEventListener('click', (ev) => {
+    const li = ev.target.closest('li'); if (!li) return;
+    const p = li.dataset.p;
+    if (ev.target.closest('[data-regla]')) {
+      obreEditor({ accio: 'posposa', activa: true, nom: nomsApps[p] || p, apps: [p], franges: '09:00, 13:00, 20:00' }, true);
+    } else if (ev.target.closest('[data-veure]')) {
+      filtreApp = p; mostra('historial');
+    }
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refrescaEstat(); });
 
@@ -231,12 +325,16 @@ if (typeof document !== 'undefined') (() => {
   function pintaRegles() {
     const ul = $('#llista-regles');
     $('#sense-regles').hidden = regles.length > 0;
-    ul.innerHTML = regles.map((r, i) => `
+    ul.innerHTML = regles.map((r, i) => {
+      const v = vegadesAplicada(r, historial);
+      return `
       <li class="${r.activa === false ? 'inactiva' : ''}" data-i="${i}">
         <span class="ic">${ACCIONS[r.accio]?.ic || '•'}</span>
-        <div class="cos"><b>${esc(r.nom)}</b><small>${esc(ACCIONS[r.accio]?.nom || '')} · ${esc(resumRegla(r, nomsApps))}</small></div>
+        <div class="cos"><b>${esc(r.nom)}</b><small>${esc(ACCIONS[r.accio]?.nom || '')} · ${esc(resumRegla(r, nomsApps))}</small>
+          ${v ? `<span class="etiqueta">${v} ${v === 1 ? 'cop' : 'cops'} en 7 dies</span>` : ''}</div>
         <div class="ordre"><button data-m="-1" aria-label="Puja">▲</button><button data-m="1" aria-label="Baixa">▼</button></div>
-      </li>`).join('');
+      </li>`;
+    }).join('');
   }
   $('#llista-regles').addEventListener('click', async (ev) => {
     const li = ev.target.closest('li'); if (!li) return;
@@ -270,6 +368,8 @@ if (typeof document !== 'undefined') (() => {
       `<button type="button" class="accio ${k === r.accio ? 'activa' : ''}" data-a="${k}"><span class="ic">${a.ic}</span>${a.nom}</button>`).join('');
     pintaParams(); pintaApps();
     $('#r-apps-cerca').value = ''; $('#r-apps-llista').innerHTML = '';
+    $('#r-prova-res').innerHTML = '';
+    $('#ed-duplica').hidden = nova;
     ed.showModal();
   }
   function pintaParams() {
@@ -350,17 +450,38 @@ if (typeof document !== 'undefined') (() => {
     await N.prova({ accio: edRegla.accio, so: edRegla.so || 'defecte', vibracio: edRegla.vibracio || 'defecte' });
     if (edRegla.accio === 'alarma') setTimeout(() => N.aturaAlarma(), 5000);
   });
-  $('#f-regla').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
+  /** Passa el que hi ha al formulari a edRegla (sense desar). */
+  function llegeixForm() {
     llegeixParams();
     const r = edRegla;
     r.nom = $('#r-nom').value.trim() || ACCIONS[r.accio].nom;
-    r.apps = edApps;
+    r.apps = [...edApps];
     r.paraules = llista($('#r-paraules').value);
     r.exclou = llista($('#r-exclou').value);
     r.de = $('#r-de').value; r.a = $('#r-a').value;
     r.dies = $$('#r-dies .xip.activa').map((b) => b.dataset.d);
     r.activa = $('#r-activa').checked;
+    return r;
+  }
+  $('#ed-prova-hist').addEventListener('click', async () => {
+    const r = llegeixForm();
+    if (!historial.length) await carregaHistorial();
+    const t = provaRegla(r, historial);
+    const dies = historial.length ? Math.max(1, Math.ceil((Date.now() - Math.min(...historial.map((h) => h.t))) / 86400000)) : 0;
+    $('#r-prova-res').innerHTML = !historial.length
+      ? '<p class="ajuda">L\'historial és buit: quan arribin notificacions, aquí veuràs quines hauria atrapat.</p>'
+      : `<p class="ajuda">${dies === 1 ? "De l'últim dia" : `Dels últims ${dies} dies`}, n'hauria atrapat <b>${t.length}</b> de ${historial.length}.</p>`
+        + (t.length ? '<ul class="mini">' + t.slice(0, 6).map((h) => `<li><b>${esc(h.titol || h.app)}</b> <small>${esc(h.app)} · ${hora(h.t)} · ${esc(String(h.text || '').slice(0, 80))}</small></li>`).join('') + '</ul>' : '');
+  });
+  $('#ed-duplica').addEventListener('click', () => {
+    const r = structuredClone(llegeixForm());
+    delete r.id; r.nom = (r.nom + ' (còpia)').slice(0, 60);
+    ed.close();
+    obreEditor(r, true);
+  });
+  $('#f-regla').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const r = llegeixForm();
     if (r.accio === 'posposa' && finsProperaFranja(r.franges) < 0) return toast('Posa almenys una hora vàlida (HH:MM)');
     if (r.accio === 'respon' && !r.text) return toast('Escriu la resposta');
     if (!r.id) r.id = 'r' + Date.now().toString(36);
@@ -379,7 +500,11 @@ if (typeof document !== 'undefined') (() => {
   function pintaHistorial() {
     const q = normalitza($('#cerca').value);
     const avui = new Date(); avui.setHours(0, 0, 0, 0);
+    const fa = $('#filtre-app');
+    fa.hidden = !filtreApp;
+    if (filtreApp) fa.textContent = (nomsApps[filtreApp] || filtreApp) + ' ✕';
     const ll = historial.filter((h) => (!q || normalitza(`${h.app} ${h.titol} ${h.text}`).includes(q))
+      && (!filtreApp || h.paquet === filtreApp)
       && (filtreHist !== 'filtrades' || h.accio) && (filtreHist !== 'avui' || h.t >= avui.getTime())).slice(0, 300);
     $('#sense-historial').hidden = ll.length > 0;
     $('#llista-historial').innerHTML = ll.map((h) => `
@@ -392,8 +517,9 @@ if (typeof document !== 'undefined') (() => {
   $('#cerca').addEventListener('input', pintaHistorial);
   $('#filtre-historial').addEventListener('click', (ev) => {
     const b = ev.target.closest('.xip'); if (!b) return;
+    if (b.id === 'filtre-app') { filtreApp = ''; pintaHistorial(); return; }
     filtreHist = b.dataset.f;
-    $$('#filtre-historial .xip').forEach((x) => x.classList.toggle('activa', x === b));
+    $$('#filtre-historial .xip[data-f]').forEach((x) => x.classList.toggle('activa', x === b));
     pintaHistorial();
   });
   $('#llista-historial').addEventListener('click', async (ev) => {
@@ -416,7 +542,50 @@ if (typeof document !== 'undefined') (() => {
       if (el.type === 'checkbox') el.checked = !!ajustos[k]; else el.value = ajustos[k];
     }
     $('#versio').textContent = 'v' + VERSIO + (natiu ? '' : ' (web)');
+    $$('.versio').forEach((el) => { el.textContent = 'v' + VERSIO; });
   }
+
+  // ---------------- Còpia de seguretat ----------------
+  $('#exporta').addEventListener('click', async () => {
+    const d = new Date();
+    const nom = `xoriguer-notificacions-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+    const text = JSON.stringify({ app: 'xoriguer-notificacions', versio: VERSIO, data: d.toISOString(), regles, ajustos }, null, 2);
+    if (natiu) {
+      try { const r = await N.exporta({ text, nom }); if (r.ok) toast('Còpia desada'); } catch (e) { toast(e.message || 'No s\'ha pogut desar'); }
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = nom;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+  });
+  async function recupera(text) {
+    let c;
+    try { c = llegeixCopia(text); } catch (e) { return toast(e.message); }
+    const substitueix = !regles.length || confirm(`El fitxer té ${c.regles.length} regles.\n\nD'acord = SUBSTITUEIX les teves ${regles.length} regles.\nCancel·la = AFEGEIX-les a les que tens.`);
+    if (substitueix) regles = c.regles;
+    else {
+      const ids = new Set(regles.map((r) => r.id));
+      regles = regles.concat(c.regles.map((r) => (r.id && ids.has(r.id) ? { ...r, id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) } : r)));
+    }
+    if (c.ajustos && substitueix) ajustos = { ...AJ_DEF, ...c.ajustos };
+    await desa(); pintaRegles(); pintaAjustos();
+    toast(c.regles.length === 1 ? 'Recuperada 1 regla' : `Recuperades ${c.regles.length} regles`);
+  }
+  $('#importa').addEventListener('click', async () => {
+    if (!natiu) return $('#importa-fitxer').click();
+    try { const r = await N.importa(); if (r.text) await recupera(r.text); } catch (e) { toast(e.message || 'No s\'ha pogut llegir'); }
+  });
+  $('#importa-fitxer').addEventListener('change', async (ev) => {
+    const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+    if (f) await recupera(await f.text());
+  });
+
+  // ---------------- Versió nova ----------------
+  $('#versio-nova').addEventListener('click', async () => {
+    if (natiu) { try { await N.obreWeb({ url: WEB_VERSIONS }); } catch { toast('No s\'ha pogut obrir el navegador'); } }
+    else window.open(WEB_VERSIONS, '_blank', 'noopener');
+  });
   $('#v-ajustos').addEventListener('change', async (ev) => {
     const el = ev.target; if (!el.id || !el.id.startsWith('a-')) return;
     const k = el.id.slice(2);

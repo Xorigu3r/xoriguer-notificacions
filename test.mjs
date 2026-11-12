@@ -44,4 +44,30 @@ prova('pròxima franja de posposar', () => {
 });
 prova('resum de regla', () => assert.match(L.resumRegla({ accio: 'refreda', segons: 90, apps: ['com.whatsapp'] }, { 'com.whatsapp': 'WhatsApp' }), /WhatsApp · 90 s/));
 prova('plantilles amb acció vàlida', () => L.PLANTILLES.forEach((p) => assert.ok(L.ACCIONS[p.accio])));
+const H = [
+  { t: dl10.getTime(), paquet: 'com.whatsapp', app: 'WhatsApp', titol: 'Maria', text: 'Hola', regles: 'Calma, Maria' },
+  { t: dl10.getTime() + 60000, paquet: 'com.whatsapp', app: 'WhatsApp', titol: 'Joan', text: 'Ei', accio: 'silenciada', regles: 'Calma' },
+  { t: dl10.getTime() + 120000, paquet: 'com.instagram.android', app: 'Instagram', titol: 'Instagram', text: 'Like' },
+  { t: dl10.getTime() - 10 * 86400000, paquet: 'com.vell', app: 'Vella', titol: '', text: '' },
+];
+const araH = dl10.getTime() + 3600000;
+prova('estadística: compta per app, filtrades, i només 7 dies', () => {
+  const e = L.estadistica(H, 7, araH);
+  assert.deepEqual(e.map((x) => [x.paquet, x.n, x.filtrades]), [['com.whatsapp', 2, 1], ['com.instagram.android', 1, 0]]);
+});
+prova("prova d'una regla amb l'historial (fins i tot si està inactiva)", () => {
+  assert.equal(L.provaRegla({ apps: ['com.whatsapp'], paraules: ['maria'], activa: false }, H).length, 1);
+  assert.equal(L.provaRegla({ de: '09:00', a: '09:30' }, H).length, 0); // les de les 10:00 no hi entren
+});
+prova('vegades aplicada (nom exacte, 7 dies)', () => {
+  assert.equal(L.vegadesAplicada({ nom: 'Calma' }, H, 7, araH), 2);
+  assert.equal(L.vegadesAplicada({ nom: 'Mar' }, H, 7, araH), 0);
+});
+prova('còpia de seguretat: accepta la nostra, una llista sola, i rebutja brossa', () => {
+  const c = L.llegeixCopia(JSON.stringify({ regles: [{ accio: 'ignora', nom: 'x' }, { accio: 'inventada' }], ajustos: { control: true } }));
+  assert.equal(c.regles.length, 1); assert.equal(c.ajustos.control, true);
+  assert.equal(L.llegeixCopia('[{"accio":"silencia"}]').regles[0].nom, 'Silenciar');
+  assert.throws(() => L.llegeixCopia('hola'), /no és una còpia/);
+  assert.throws(() => L.llegeixCopia('{"regles":[{"accio":"res"}]}'), /Cap regla vàlida/);
+});
 console.log(`\n${n} proves correctes`);

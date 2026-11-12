@@ -30,7 +30,23 @@
             </intent-filter>
         </service>
 
-        <receiver android:name=".Receptor" android:exported="false" />
+        <receiver android:name=".Receptor" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Botó de Configuració ràpida: pausa les regles 1 hora -->
+        <service
+            android:name=".Rajola"
+            android:label="Pausa les regles"
+            android:icon="@drawable/ic_stat_campana"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -44,6 +60,8 @@
     <!-- Sense permís d'Internet: cap dada surt mai del mòbil. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Recordatoris i respostes a l'hora justa (si no es dona, poden arribar uns minuts tard) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <queries>
         <intent>

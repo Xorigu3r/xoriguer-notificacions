@@ -34,10 +34,25 @@
       <div id="estat" class="targeta">
         <h2>Estat</h2>
         <ul class="passos">
-          <li id="p-acces"><span class="punt"></span><div><b>Accés a les notificacions</b><small>Imprescindible: és el que deixa l'app veure i filtrar les notificacions.</small></div><button data-fes="obreAcces">Activa</button></li>
-          <li id="p-permis"><span class="punt"></span><div><b>Permís per mostrar avisos</b><small>Per a Desfer, Secret, Alarma i Restaurar.</small></div><button data-fes="demanaPermis">Permet</button></li>
+          <li id="p-acces"><span class="punt"></span><div><b>Accés a les notificacions</b><small>Imprescindible: és el que deixa l'app veure i filtrar les notificacions.</small>
+            <small class="restringit">Si l'interruptor surt <b>en gris</b> («configuració restringida»): Configuració → Aplicacions → <b>Notificacions</b> → menú <b>⋮</b> de dalt → <b>Permet la configuració restringida</b>. Després torna aquí.</small></div><button data-fes="obreAcces">Activa</button></li>
+          <li id="p-permis"><span class="punt"></span><div><b>Permís per mostrar avisos</b><small>Per a Desfer, Secret, Alarma, Pausa i Restaurar.</small></div><button data-fes="demanaPermis">Permet</button></li>
+          <li id="p-alarmes" hidden><span class="punt"></span><div><b>Alarmes a l'hora justa</b><small>Perquè els recordatoris i les respostes automàtiques no arribin uns minuts tard.</small></div><button data-fes="obreAlarmes">Permet</button></li>
           <li id="p-bateria"><span class="punt neutre"></span><div><b>Bateria sense restriccions</b><small>Recomanat: alguns mòbils aturen les apps en segon pla.</small></div><button data-fes="obreBateria">Obre</button></li>
         </ul>
+      </div>
+
+      <div id="pausa" class="targeta">
+        <div id="pausa-on" hidden>
+          <h2>⏸ Regles en pausa</h2>
+          <p class="suau">Fins <b id="pausa-fins"></b>, les notificacions arriben sense filtrar.</p>
+          <button class="primari" data-pausa="0">Reprèn ara</button>
+        </div>
+        <div id="pausa-off">
+          <h2>Pausa</h2>
+          <p class="suau">Atura totes les regles una estona. També hi ha un botó a la persiana (Configuració ràpida → llapis → «Pausa les regles»).</p>
+          <div class="xips"><button class="xip" data-pausa="60">1 hora</button><button class="xip" data-pausa="180">3 hores</button><button class="xip" data-pausa="dema">Fins demà a les 8</button></div>
+        </div>
       </div>
 
       <div class="targeta">
@@ -50,6 +65,13 @@
         <div><b id="n-avui">0</b><small>avui</small></div>
         <div><b id="n-filtrades">0</b><small>filtrades avui</small></div>
         <div><b id="n-regles">0</b><small>regles actives</small></div>
+      </div>
+
+      <div class="targeta">
+        <h2>Qui t'envia més</h2>
+        <p class="suau">Els últims 7 dies. Toca una app per veure-les, o <b>+ Regla</b> per posar-hi ordre.</p>
+        <ul id="estadistica" class="barres"></ul>
+        <p id="sense-estadistica" class="suau" hidden>Encara no hi ha prou notificacions a l'historial.</p>
       </div>
     </section>
 
@@ -69,7 +91,9 @@
         <button class="xip activa" data-f="">Totes</button>
         <button class="xip" data-f="filtrades">Filtrades</button>
         <button class="xip" data-f="avui">Avui</button>
+        <button class="xip activa" id="filtre-app" hidden></button>
       </div>
+      <p class="suau petit">Aquí també queden els missatges que algú esborra després d'enviar-los.</p>
       <ul id="llista-historial" class="llista historial"></ul>
       <p id="sense-historial" class="buit" hidden>No hi ha notificacions desades.</p>
     </section>
@@ -87,6 +111,17 @@
         <label class="interruptor"><input type="checkbox" id="a-historial"><span></span>
           <div><b>Desa l'historial</b><small>Només al mòbil.</small></div></label>
         <label class="camp">Dies d'historial <input type="number" id="a-diesHistorial" min="1" max="90"></label>
+      </div>
+      <div class="targeta">
+        <h3>Còpia de seguretat</h3>
+        <p class="suau">Desa les regles i els ajustos en un fitxer (per canviar de mòbil o per si de cas). L'historial no hi va.</p>
+        <div class="xips"><button id="exporta">Desa en un fitxer</button><button id="importa">Recupera d'un fitxer</button></div>
+        <input type="file" id="importa-fitxer" accept=".json,application/json" hidden>
+      </div>
+      <div class="targeta">
+        <h3>Versió nova</h3>
+        <p class="suau">L'app no té Internet, així que no pot mirar-ho sola. Aquest botó obre la pàgina de descàrregues al navegador: si hi ha una versió més alta que la teva (<span class="versio"></span>), baixa-la i instal·la-la per sobre. Les regles es queden.</p>
+        <button id="versio-nova">Mira si n'hi ha una de nova</button>
       </div>
       <div class="targeta">
         <h3>Privadesa</h3>
@@ -128,10 +163,16 @@
         <div class="xips dies" id="r-dies"></div>
       </fieldset>
 
+      <div class="prova-hist">
+        <button type="button" id="ed-prova-hist">🔍 Què hauria atrapat?</button>
+        <div id="r-prova-res"></div>
+      </div>
+
       <label class="interruptor"><input type="checkbox" id="r-activa" checked><span></span><div><b>Activa</b></div></label>
       <div class="botons">
         <button type="button" class="perill" id="ed-esborra">Esborra</button>
-        <button type="button" id="ed-prova">Prova</button>
+        <button type="button" id="ed-duplica">Duplica</button>
+        <button type="button" id="ed-prova">Prova el so</button>
         <button type="submit" class="primari" id="ed-desa">Desa</button>
       </div>
     </form>

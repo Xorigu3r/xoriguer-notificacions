@@ -48,6 +48,85 @@ public class NotificacionsPlugin extends Plugin {
         r.put("permisNotificacions", permis);
         r.put("alarma", Alertes.sonaAlarma());
         r.put("android", Build.VERSION.SDK_INT);
+        r.put("pausaFins", Magatzem.enPausa(getContext()) ? Magatzem.pausaFins(getContext()) : 0);
+        r.put("alarmesExactes", Temporitzadors.exactes(getContext()));
+        r.put("pendents", Temporitzadors.pendents(getContext()));
+        call.resolve(r);
+    }
+
+    /** minuts > 0: pausa les regles aquests minuts; 0: reprèn. */
+    @PluginMethod
+    public void pausa(PluginCall call) {
+        int m = call.getInt("minuts", 0);
+        long fins = call.getLong("fins", 0L);
+        if (fins <= 0 && m > 0) fins = System.currentTimeMillis() + m * 60_000L;
+        Pausa.posa(getContext(), fins);
+        JSObject r = new JSObject();
+        r.put("pausaFins", Magatzem.enPausa(getContext()) ? Magatzem.pausaFins(getContext()) : 0);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void obreAlarmes(PluginCall call) {
+        Intent i = Build.VERSION.SDK_INT >= 31
+                ? new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getContext().getPackageName()))
+                : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { getContext().startActivity(i); } catch (Exception e) { call.reject("No es pot obrir"); return; }
+        call.resolve();
+    }
+
+    /** Obre una adreça al navegador (l'app no té Internet: ho fa el navegador). Només https. */
+    @PluginMethod
+    public void obreWeb(PluginCall call) {
+        String url = call.getString("url", "");
+        if (url == null || !url.startsWith("https://")) { call.reject("Adreça no vàlida"); return; }
+        try { getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+        catch (Exception e) { call.reject("No hi ha cap navegador"); return; }
+        call.resolve();
+    }
+
+    // ---------------- Còpia de seguretat (fitxer triat per l'usuari, sense Internet) ----------------
+    private String perExportar;
+
+    @PluginMethod
+    public void exporta(PluginCall call) {
+        perExportar = call.getString("text", "");
+        Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/json").putExtra(Intent.EXTRA_TITLE, call.getString("nom", "regles.json"));
+        startActivityForResult(call, i, "exportat");
+    }
+
+    @ActivityCallback
+    private void exportat(PluginCall call, ActivityResult result) {
+        JSObject r = new JSObject();
+        Uri uri = result.getData() != null ? result.getData().getData() : null;
+        if (uri == null) { r.put("ok", false); call.resolve(r); return; }
+        try (java.io.OutputStream out = getContext().getContentResolver().openOutputStream(uri, "wt")) {
+            out.write(perExportar.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            r.put("ok", true);
+        } catch (Exception e) { call.reject("No s'ha pogut desar: " + e.getMessage()); return; }
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void importa(PluginCall call) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+        startActivityForResult(call, i, "importat");
+    }
+
+    @ActivityCallback
+    private void importat(PluginCall call, ActivityResult result) {
+        JSObject r = new JSObject();
+        Uri uri = result.getData() != null ? result.getData().getData() : null;
+        if (uri == null) { call.resolve(r); return; }
+        try (java.io.InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n, total = 0;
+            while ((n = in.read(buf)) > 0) { b.write(buf, 0, n); total += n; if (total > 2_000_000) throw new Exception("fitxer massa gran"); }
+            r.put("text", new String(b.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) { call.reject("No s'ha pogut llegir: " + e.getMessage()); return; }
         call.resolve(r);
     }
 

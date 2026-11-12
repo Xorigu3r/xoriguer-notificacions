@@ -7,8 +7,8 @@ android {
         applicationId "cat.xoriguer.notificacions"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +16,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Clau de signatura pròpia (fora del repo): ~/android-tools/claus/notificacions.properties.
+    // Sense aquest fitxer, la release es firma amb la clau de debug (així qualsevol pot compilar-la).
+    def propsClau = new File(System.getProperty("user.home"), "android-tools/claus/notificacions.properties")
+    signingConfigs {
+        xoriguer {
+            if (propsClau.exists()) {
+                def p = new Properties()
+                propsClau.withInputStream { p.load(it) }
+                storeFile file(p['storeFile'])
+                storePassword p['storePassword']
+                keyAlias p['keyAlias']
+                keyPassword p['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig propsClau.exists() ? signingConfigs.xoriguer : signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
