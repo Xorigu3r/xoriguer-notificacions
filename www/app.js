@@ -157,8 +157,9 @@ if (typeof document !== 'undefined') (() => {
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const natiu = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const N = natiu ? window.Capacitor.registerPlugin('Notificacions') : null;
-  const VERSIO = '1.1';
-  const WEB_VERSIONS = 'https://github.com/Xorigu3r/xoriguer-notificacions/releases/latest';
+  const VERSIO = '1.2';
+  const WEB_DESCARREGUES = 'https://xorigu3r.github.io/#utils';
+  const WEB_VERSIONS ='https://github.com/Xorigu3r/xoriguer-notificacions/releases/latest';
 
   let regles = [];
   let ajustos = {};
@@ -230,12 +231,20 @@ if (typeof document !== 'undefined') (() => {
     window.scrollTo(0, 0);
   }
   $$('.pestanyes button').forEach((b) => b.addEventListener('click', () => mostra(b.dataset.v)));
+  // Guia: [data-guia="id"] obre la pestanya i l'apartat
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-guia]'); if (!b) return;
+    mostra('guia');
+    const d = document.getElementById(b.dataset.guia);
+    if (d) { d.open = true; setTimeout(() => d.scrollIntoView({ block: 'start' }), 0); }
+  });
+  if (!natiu) $('#g-instal').open = true; // a la web, el primer que cal és instal·lar-la
 
   // ---------------- Inici ----------------
   async function refrescaEstat() {
     if (!natiu) {
       $('#avis-web').hidden = false;
-      $$('#estat button').forEach((b) => { b.disabled = true; });
+      $$('#estat button[data-fes]').forEach((b) => { b.disabled = true; });
       return;
     }
     const e = await N.estat();
@@ -582,10 +591,12 @@ if (typeof document !== 'undefined') (() => {
   });
 
   // ---------------- Versió nova ----------------
-  $('#versio-nova').addEventListener('click', async () => {
-    if (natiu) { try { await N.obreWeb({ url: WEB_VERSIONS }); } catch { toast('No s\'ha pogut obrir el navegador'); } }
-    else window.open(WEB_VERSIONS, '_blank', 'noopener');
-  });
+  async function obreWeb(url) {
+    if (natiu) { try { await N.obreWeb({ url }); } catch { toast('No s\'ha pogut obrir el navegador'); } }
+    else window.open(url, '_blank', 'noopener');
+  }
+  $('#versio-nova').addEventListener('click', () => obreWeb(WEB_VERSIONS));
+  $('#g-baixa').addEventListener('click', () => obreWeb(WEB_DESCARREGUES));
   $('#v-ajustos').addEventListener('change', async (ev) => {
     const el = ev.target; if (!el.id || !el.id.startsWith('a-')) return;
     const k = el.id.slice(2);

@@ -29,6 +29,7 @@
         <h2>Versió web</h2>
         <p>Una web (PWA) <b>no pot llegir les notificacions</b> de les altres apps: Android només ho permet a una app instal·lada.
           Aquí pots preparar les regles i provar-les; per fer-les servir de veritat instal·la l'APK <b>XoriguerNotificacions.apk</b>.</p>
+        <p><button class="primari" data-guia="g-instal">Com s'instal·la (Play Protect)</button></p>
       </div>
 
       <div id="estat" class="targeta">
@@ -40,6 +41,7 @@
           <li id="p-alarmes" hidden><span class="punt"></span><div><b>Alarmes a l'hora justa</b><small>Perquè els recordatoris i les respostes automàtiques no arribin uns minuts tard.</small></div><button data-fes="obreAlarmes">Permet</button></li>
           <li id="p-bateria"><span class="punt neutre"></span><div><b>Bateria sense restriccions</b><small>Recomanat: alguns mòbils aturen les apps en segon pla.</small></div><button data-fes="obreBateria">Obre</button></li>
         </ul>
+        <p class="suau petit">Primer cop? <button class="enllac" data-guia="g-marxa">Mira la guia</button></p>
       </div>
 
       <div id="pausa" class="targeta">
@@ -133,6 +135,108 @@
         <p class="suau">No fa: trucades (Android no ho permet igual), rellotge Wear OS ni tocar botons amb el servei d'accessibilitat.</p>
       </div>
     </section>
+
+    <!-- GUIA -->
+    <section id="v-guia" class="vista guia">
+      <h2>Guia</h2>
+      <p class="suau">Toca un apartat per obrir-lo.</p>
+
+      <details id="g-instal">
+        <summary>📲 Instal·lar l'APK (i Play Protect)</summary>
+        <ol>
+          <li>Baixa <b>XoriguerNotificacions.apk</b> des de la pàgina de descàrregues i obre el fitxer (Baixades o la notificació del navegador).</li>
+          <li>Si diu que no es poden instal·lar apps d'aquest origen: <b>Configuració</b> → activa <b>Permet d'aquesta font</b> per al navegador o l'app de fitxers. Torna enrere i continua.</li>
+          <li>Si surt <b>«Bloquejada per Play Protect»</b> o <b>«App no segura»</b>: toca <b>Més detalls</b> → <b>Instal·la igualment</b>.</li>
+        </ol>
+        <p><b>Si no hi ha l'opció «Instal·la igualment»</b>, desactiva Play Protect una estona:</p>
+        <ol>
+          <li>Obre <b>Play Store</b> → toca la teva <b>foto</b> (a dalt a la dreta) → <b>Play Protect</b>.</li>
+          <li>Toca la <b>roda dentada ⚙</b> (a dalt a la dreta) → desactiva <b>Analitza les aplicacions amb Play Protect</b> → <b>Desactiva</b>.</li>
+          <li>Instal·la l'APK i obre l'app un cop.</li>
+          <li>Torna a Play Protect i <b>torna'l a activar</b>. Si més endavant t'avisa d'aquesta app, tria <b>Ignora</b> / <b>Mantén</b> (no «Desinstal·la»).</li>
+        </ol>
+        <p class="suau">Per què passa? Google avisa de qualsevol app que no ve de Play Store, i més si demana l'accés a les notificacions. L'app no té ni permís d'Internet: no pot enviar res enlloc.</p>
+        <p class="suau"><b>Si tenies la 1.0</b>, desinstal·la-la abans: estava firmada amb una clau de proves i la 1.1 no s'hi pot posar per sobre. De la 1.1 en endavant, les versions noves s'instal·len per sobre i les regles es queden.</p>
+        <p><button class="primari" id="g-baixa">Pàgina de descàrregues</button></p>
+      </details>
+
+      <details id="g-marxa">
+        <summary>🚦 Posar-la en marxa (5 minuts)</summary>
+        <ol>
+          <li>A <b>Inici → Estat</b>, toca <b>Activa</b> a «Accés a les notificacions» i activa <b>Xoriguer Notificacions</b>.
+            Si l'interruptor surt en gris: Configuració → Aplicacions → Notificacions → menú <b>⋮</b> → <b>Permet la configuració restringida</b>, i torna-ho a provar.</li>
+          <li>Toca <b>Permet</b> als avisos i, si surt, a les alarmes a l'hora justa.</li>
+          <li><b>Bateria → Sense restriccions.</b> A Xiaomi, Huawei, Oppo o Samsung, és el que fa que no s'aturi al cap d'una estona.</li>
+          <li>Si vols refredament, silenciar o sons propis: <b>Ajustos → Control del so</b>.</li>
+          <li>A <b>Inici → Comença ràpid</b>, toca una idea, ajusta-la i <b>Desa</b>. Tots els punts de l'Estat han de quedar verds.</li>
+        </ol>
+      </details>
+
+      <details id="g-regla">
+        <summary>🧩 Com funciona una regla</summary>
+        <p>Cada regla té dues parts:</p>
+        <ul>
+          <li><b>Què ha de fer:</b> una acció (vegeu l'apartat següent).</li>
+          <li><b>Quan:</b> les apps (cap = totes), les paraules o noms que ha de contenir el títol o el text (sense importar accents ni majúscules), les paraules que <b>no</b> ha de contenir, l'horari i els dies. Tot el que omplis s'ha de complir alhora.</li>
+        </ul>
+        <p>Les regles s'apliquen <b>de dalt a baix</b> (ordena-les amb les fletxes). <b>Ignorar</b>, <b>Secret</b> i <b>Posposar</b> aturen les de sota; les altres deixen continuar.</p>
+        <p>Abans de desar, <b>🔍 Què hauria atrapat?</b> et diu quines notificacions de l'historial hauria agafat. Si en surten massa o massa poques, afina les paraules.</p>
+      </details>
+
+      <details id="g-accions">
+        <summary>⚙️ Què fa cada acció</summary>
+        <ul class="g-accions">
+          <li><b>🚫 Ignorar</b> — l'elimina en arribar. Ex.: «oferta», «descompte» de les botigues.</li>
+          <li><b>🧊 Refredament</b> — si t'escriuen 10 missatges seguits, només sona el primer; els altres arriben callats durant els segons que triïs. <i>Cal Control del so.</i></li>
+          <li><b>🔕 Silenciar</b> — arriba igual però sense so ni vibració. Ex.: tot de 23:00 a 07:00. <i>Cal Control del so.</i></li>
+          <li><b>🔔 Alerta pròpia</b> — so o vibració diferent per a una persona o una paraula, per saber qui és sense mirar.</li>
+          <li><b>💬 Respondre</b> — si no l'has vista al cap de N minuts, respon sol el text que posis. Només a les apps que tenen «Respon» a la notificació (WhatsApp, Telegram, Missatges…).</li>
+          <li><b>⏰ Recorda-m'ho</b> — torna a sonar cada N minuts fins que la miris o l'esborris.</li>
+          <li><b>📦 Posposar</b> — l'amaga i te la torna a les hores que triïs (p. ex. 09:00, 13:00, 20:00). Bo per a xarxes socials.</li>
+          <li><b>🚨 Alarma</b> — sona fort, fins i tot amb el mòbil en silenci, fins que toques <b>Atura</b>. Per a càmeres, alarmes de casa…</li>
+          <li><b>🙈 Secret</b> — a la pantalla només surt «Contingut amagat»; si la toques, s'obre l'app igual.</li>
+        </ul>
+      </details>
+
+      <details id="g-exemples">
+        <summary>💡 Tres exemples pas a pas</summary>
+        <p><b>Que el grup de la colla no em torni boig</b><br>Nova regla → <b>Refredament</b>, 120 s → Apps: WhatsApp → Paraules: el nom del grup → Desa.</p>
+        <p><b>Saber quan m'escriu la mare</b><br>Nova regla → <b>Alerta pròpia</b>, vibració «Batec» → Paraules: el nom com el tens a l'agenda → Desa. Posa-la <b>a dalt de tot</b>.</p>
+        <p><b>Conduint</b><br>Idea «Estic conduint» → canvia el text i els minuts → Desa. Quan no condueixis, desactiva-la (interruptor «Activa» o la Pausa).</p>
+      </details>
+
+      <details id="g-dia">
+        <summary>📅 El dia a dia</summary>
+        <ul>
+          <li><b>Pausa:</b> a Inici, 1 h, 3 h o fins demà. O posa el botó a la persiana: baixa-la del tot → <b>llapis ✏</b> → arrossega <b>Pausa les regles</b>. Un toc pausa 1 h; un altre la treu.</li>
+          <li><b>Desfer:</b> si esborres una notificació sense voler, surt un avís uns segons per recuperar-la.</li>
+          <li><b>Historial:</b> totes les notificacions, amb cerca i filtres, i també els missatges que algú esborra després d'enviar-los.</li>
+          <li><b>Qui t'envia més:</b> a Inici. Toca <b>+ Regla</b> al costat de l'app que molesta més.</li>
+          <li>Cada regla diu <b>quantes vegades s'ha aplicat</b> la darrera setmana: si diu 0, potser les paraules no són bones.</li>
+        </ul>
+      </details>
+
+      <details id="g-copia">
+        <summary>💾 Còpia de seguretat i versions noves</summary>
+        <ul>
+          <li><b>Ajustos → Desa en un fitxer</b> guarda les regles i els ajustos. Per canviar de mòbil: instal·la l'app al nou i <b>Recupera d'un fitxer</b>.</li>
+          <li><b>Ajustos → Mira si n'hi ha una de nova</b> obre la pàgina al navegador. Instal·la-la per sobre: les regles es queden.</li>
+        </ul>
+      </details>
+
+      <details id="g-problemes">
+        <summary>🛠 Si alguna cosa no va</summary>
+        <ul>
+          <li><b>No filtra res:</b> mira que els punts de l'Estat siguin verds. Després d'actualitzar l'app o reiniciar, alguns mòbils treuen l'accés: torna'l a activar.</li>
+          <li><b>Funciona i al cap d'unes hores no:</b> el mòbil l'atura. Bateria sense restriccions; a Xiaomi, també <b>Inici automàtic</b>.</li>
+          <li><b>El refredament o silenciar no fan res:</b> activa <b>Control del so</b>.</li>
+          <li><b>Sona dues vegades:</b> passa si l'app té el seu so i també una Alerta pròpia sense Control del so. Activa'l.</li>
+          <li><b>Els recordatoris arriben tard:</b> dona el permís d'<b>alarmes a l'hora justa</b> (Estat).</li>
+          <li><b>La resposta automàtica no surt:</b> la notificació ha de tenir el botó «Respon» i ha de seguir a la persiana quan passen els minuts.</li>
+          <li><b>Trucades:</b> no les toca, per seguretat.</li>
+        </ul>
+      </details>
+    </section>
   </main>
 
   <nav class="pestanyes">
@@ -140,6 +244,7 @@
     <button data-v="regles"><svg viewBox="0 0 24 24"><path d="M3 5h18v2H3zm0 6h12v2H3zm0 6h18v2H3z"/></svg>Regles</button>
     <button data-v="historial"><svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8z"/></svg>Historial</button>
     <button data-v="ajustos"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>Ajustos</button>
+    <button data-v="guia"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 17h-2v-2h2zm2.07-7.75-.9.92A3.4 3.4 0 0 0 13 15h-2v-.5a4 4 0 0 1 1.17-2.83l1.24-1.26A1.96 1.96 0 0 0 14 9a2 2 0 0 0-4 0H8a4 4 0 0 1 8 0 3.2 3.2 0 0 1-.93 2.25z"/></svg>Guia</button>
   </nav>
 
   <!-- EDITOR DE REGLA -->
