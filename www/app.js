@@ -160,7 +160,7 @@ if (typeof document !== 'undefined') (() => {
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const natiu = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const N = natiu ? window.Capacitor.registerPlugin('Notificacions') : null;
-  const VERSIO = '1.3';
+  const VERSIO = '1.3.1';
   // Idioma: el desat (ajust «idioma», còpia a localStorage per traduir abans de pintar); buit = el del sistema
   let idiomaDesat = '';
   try { idiomaDesat = JSON.parse(localStorage.getItem('idioma')) || ''; } catch { /* res */ }
@@ -168,8 +168,8 @@ if (typeof document !== 'undefined') (() => {
   document.documentElement.lang = I18N.llengua;
   I18N.tradueix(document.body);
   const LOC = () => ({ ca: 'ca', es: 'es', fr: 'fr', en: 'en-GB' }[I18N.llengua] || 'ca');
-  const WEB_DESCARREGUES = 'https://xorigu3r.github.io/#utils';
-  const WEB_VERSIONS ='https://github.com/Xorigu3r/xoriguer-notificacions/releases/latest';
+  const WEB_DESCARREGUES = 'https://xoriguer.dev/#utils';
+  const WEB_VERSIONS = 'https://xoriguer.dev/#utils';
 
   let regles = [];
   let ajustos = {};
