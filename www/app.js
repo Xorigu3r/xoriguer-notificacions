@@ -611,7 +611,9 @@ if (typeof document !== 'undefined') (() => {
     if (natiu) { try { await N.obreWeb({ url }); } catch { toast(T_("No s'ha pogut obrir el navegador")); } }
     else window.open(url, '_blank', 'noopener');
   }
-  $('#versio-nova').addEventListener('click', () => obreWeb(WEB_VERSIONS));
+  // app d'Android: s'actualitza sense reinstal·lar (xoriguer-actualitza.js)
+  $('#versio-nova').addEventListener('click', () => (window.XActualitza?.natiu ? window.XActualitza.comprova(true) : obreWeb(WEB_VERSIONS)));
+  window.XActualitza?.inicia({ app: 'notificacions', versio: VERSIO });
   $('#g-baixa').addEventListener('click', () => obreWeb(WEB_DESCARREGUES));
   $('#v-ajustos').addEventListener('change', async (ev) => {
     const el = ev.target; if (!el.id || !el.id.startsWith('a-')) return;

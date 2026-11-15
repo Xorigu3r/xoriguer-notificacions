@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NotificacionsPlugin.class); // abans de super.onCreate
+        registerPlugin(XoriguerActualitza.class);   // actualitzacions sense reinstal·lar
         super.onCreate(savedInstanceState);
     }
 }
