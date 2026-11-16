@@ -1,6 +1,6 @@
 {
   "appId": "cat.xoriguer.notificacions",
-  "appName": "Xoriguer Notificacions",
+  "appName": "Notificacions",
   "webDir": "www",
   "android": { "backgroundColor": "#0A0B0E" }
 }
